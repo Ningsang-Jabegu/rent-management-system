@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ne">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
@@ -9,9 +9,12 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Cache-Control" content="no-cache" />
     <link rel="icon" href="./img/logo.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Merriweather:wght@300;400;700&family=Noto+Serif+Devanagari:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Merriweather:wght@300;400;700&family=Noto+Serif+Devanagari:wght@400;500;600;700&family=DM+Serif+Display&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" type="text/css" href="./css/index.css" />
   </head>
 
@@ -21,14 +24,97 @@
       <div class="loading-inner">
         <div class="loading-mandala">
           <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="50" cy="50" r="45" fill="none" stroke="#c9a96e" stroke-width="1" opacity="0.3"/>
-            <circle cx="50" cy="50" r="35" fill="none" stroke="#c9a96e" stroke-width="0.5" opacity="0.5"/>
-            <circle cx="50" cy="50" r="25" fill="none" stroke="#c9a96e" stroke-width="1" opacity="0.7"/>
-            <circle cx="50" cy="50" r="5" fill="#c9a96e" opacity="0.9"/>
-            <g transform="rotate(0 50 50)"><line x1="50" y1="5" x2="50" y2="15" stroke="#c9a96e" stroke-width="1"/></g>
-            <g transform="rotate(45 50 50)"><line x1="50" y1="5" x2="50" y2="15" stroke="#c9a96e" stroke-width="1"/></g>
-            <g transform="rotate(90 50 50)"><line x1="50" y1="5" x2="50" y2="15" stroke="#c9a96e" stroke-width="1"/></g>
-            <g transform="rotate(135 50 50)"><line x1="50" y1="5" x2="50" y2="15" stroke="#c9a96e" stroke-width="1"/></g>
+            <circle
+              cx="50"
+              cy="50"
+              r="45"
+              fill="none"
+              stroke="#c9a96e"
+              stroke-width="0.75"
+              opacity="0.15"
+            />
+            <circle
+              cx="50"
+              cy="50"
+              r="35"
+              fill="none"
+              stroke="#c9a96e"
+              stroke-width="0.5"
+              opacity="0.25"
+            />
+
+            <g class="silamsakma-group">
+              <path
+                class="silam-path outer-diamond"
+                d="M 50,6 L 94,50 L 50,94 L 6,50 Z"
+                fill="none"
+                stroke="#c9a96e"
+                stroke-width="1.5"
+              />
+
+              <path
+                class="silam-path inner-diamond-1"
+                d="M 50,18 L 82,50 L 50,82 L 18,50 Z"
+                fill="none"
+                stroke="#c9a96e"
+                stroke-width="1"
+              />
+              <path
+                class="silam-path inner-diamond-2"
+                d="M 50,28 L 72,50 L 50,72 L 28,50 Z"
+                fill="none"
+                stroke="#c9a96e"
+                stroke-width="1"
+              />
+
+              <path
+                class="silam-path core-diamond"
+                d="M 50,38 L 62,50 L 50,62 L 38,50 Z"
+                fill="none"
+                stroke="#c9a96e"
+                stroke-width="1.5"
+              />
+
+              <line
+                class="silam-line axis-v"
+                x1="50"
+                y1="6"
+                x2="50"
+                y2="94"
+                stroke="#c9a96e"
+                stroke-width="0.75"
+                opacity="0.4"
+                stroke-dasharray="4 4"
+              />
+              <line
+                class="silam-line axis-h"
+                x1="6"
+                y1="50"
+                x2="94"
+                y2="50"
+                stroke="#c9a96e"
+                stroke-width="0.75"
+                opacity="0.4"
+                stroke-dasharray="4 4"
+              />
+
+              <circle
+                cx="50"
+                cy="50"
+                r="3.5"
+                fill="#c9a96e"
+                class="silam-node node-center"
+              />
+              <circle cx="50" cy="6" r="2" fill="#c9a96e" class="silam-node" />
+              <circle cx="94" cy="50" r="2" fill="#c9a96e" class="silam-node" />
+              <circle cx="50" cy="94" r="2" fill="#c9a96e" class="silam-node" />
+              <circle cx="6" cy="50" r="2" fill="#c9a96e" class="silam-node" />
+
+              <circle cx="50" cy="18" r="1.5" fill="#c9a96e" opacity="0.7" />
+              <circle cx="82" cy="50" r="1.5" fill="#c9a96e" opacity="0.7" />
+              <circle cx="50" cy="82" r="1.5" fill="#c9a96e" opacity="0.7" />
+              <circle cx="18" cy="50" r="1.5" fill="#c9a96e" opacity="0.7" />
+            </g>
           </svg>
         </div>
         <p class="loading-text">जबेगु निवास</p>
@@ -47,12 +133,15 @@
 
       <div class="body-content-wrapper">
         <div class="body-content" id="body_content">
-
           <!-- Left decoration panel -->
           <div class="content-decoration-wrapper">
             <div class="deco-top">
               <div class="content-logo-wrapper">
-                <img class="content-logo" src="./img/logo.png" alt="जबेगु निवास" />
+                <img
+                  class="content-logo"
+                  src="./img/logo.png"
+                  alt="जबेगु निवास"
+                />
               </div>
               <div class="portal-name-devanagari">जबेगु निवास</div>
               <div class="portal-subtitle">Jabegu Niwas</div>
@@ -60,17 +149,26 @@
                 <span>—</span><span class="diamond">❖</span><span>—</span>
               </div>
               <p class="portal-description">
-                जबेगु निवासमा यहाँ लाई हार्दिक स्वागत छ।<br>
-                <span class="desc-english">You are most welcome to Jabegu Niwas.</span>
+                जबेगु निवासमा यहाँ लाई हार्दिक स्वागत छ।<br />
+                <span class="desc-english"
+                  >You are most welcome to Jabegu Niwas.</span
+                >
               </p>
             </div>
             <div class="deco-bottom">
               <div class="wifi-icon-wrap">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="wifi-svg">
-                  <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
-                  <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
-                  <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
-                  <circle cx="12" cy="20" r="1" fill="currentColor"/>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  class="wifi-svg"
+                >
+                  <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+                  <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+                  <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+                  <circle cx="12" cy="20" r="1" fill="currentColor" />
                 </svg>
               </div>
               <div class="wifi-label">Secure Access Gateway</div>
@@ -90,18 +188,46 @@
               <div class="login-item login-item-fixaccount">
                 <div class="input-group">
                   <span class="input-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                    >
+                      <circle cx="12" cy="8" r="4" />
+                      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                    </svg>
                   </span>
-                  <input class="rj-input" type="text" id="account_input" placeholder="प्रयोगकर्ता नाम (Username)" />
+                  <input
+                    class="rj-input"
+                    type="text"
+                    id="account_input"
+                    placeholder="प्रयोगकर्ता नाम (Username)"
+                  />
                 </div>
               </div>
 
               <div class="login-item login-item-fixaccount">
                 <div class="input-group">
                   <span class="input-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                    >
+                      <rect x="3" y="11" width="18" height="11" rx="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
                   </span>
-                  <input class="rj-input" type="password" id="account_password" placeholder="पासवर्ड (Password)" />
+                  <input
+                    class="rj-input"
+                    type="password"
+                    id="account_password"
+                    placeholder="पासवर्ड (Password)"
+                  />
                 </div>
               </div>
             </div>
@@ -114,11 +240,10 @@
             </button>
 
             <div class="login-footer-note">
-              पारिवारिक सदस्यहरू स्वतः जडान हुनेछन्<br>
+              पारिवारिक सदस्यहरू स्वतः जडान हुनेछन्<br />
               <span>Family members connect automatically</span>
             </div>
           </div>
-
         </div>
       </div>
     </div>

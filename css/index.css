@@ -720,3 +720,30 @@ body {
   70% { opacity: 0.18; }
   100% { opacity: 0; transform: translateY(-80px) scale(1.08); }
 }
+
+/* इनलाइन बटन्स के अंदर Lucide Icons को संरेखित (align) करने के लिए */
+.table-mini-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.table-mini-action-btn i {
+  width: 14px;
+  height: 14px;
+}
+
+/* इनपुट फील्ड के लेआउट को साफ रखने के लिए */
+.receipt-action-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ne">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
@@ -6,13 +6,16 @@
     <meta name="viewport" content="initial-scale=1.0, width=device-width" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <link rel="icon" href="./img/logo.png" />
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Serif+Devanagari:wght@500;600;700&display=swap" rel="stylesheet">
-    
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Serif+Devanagari:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
     <link rel="stylesheet" type="text/css" href="./css/index.css" />
-    
+
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
@@ -22,9 +25,97 @@
       <div class="loading-inner">
         <div class="loading-mandala">
           <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="50" cy="50" r="45" fill="none" stroke="#c9a96e" stroke-width="1" opacity="0.3"/>
-            <circle cx="50" cy="50" r="25" fill="none" stroke="#c9a96e" stroke-width="1" opacity="0.7"/>
-            <circle cx="50" cy="50" r="5" fill="#c9a96e" opacity="0.9"/>
+            <circle
+              cx="50"
+              cy="50"
+              r="45"
+              fill="none"
+              stroke="#c9a96e"
+              stroke-width="0.75"
+              opacity="0.15"
+            />
+            <circle
+              cx="50"
+              cy="50"
+              r="35"
+              fill="none"
+              stroke="#c9a96e"
+              stroke-width="0.5"
+              opacity="0.25"
+            />
+
+            <g class="silamsakma-group">
+              <path
+                class="silam-path outer-diamond"
+                d="M 50,6 L 94,50 L 50,94 L 6,50 Z"
+                fill="none"
+                stroke="#c9a96e"
+                stroke-width="1.5"
+              />
+
+              <path
+                class="silam-path inner-diamond-1"
+                d="M 50,18 L 82,50 L 50,82 L 18,50 Z"
+                fill="none"
+                stroke="#c9a96e"
+                stroke-width="1"
+              />
+              <path
+                class="silam-path inner-diamond-2"
+                d="M 50,28 L 72,50 L 50,72 L 28,50 Z"
+                fill="none"
+                stroke="#c9a96e"
+                stroke-width="1"
+              />
+
+              <path
+                class="silam-path core-diamond"
+                d="M 50,38 L 62,50 L 50,62 L 38,50 Z"
+                fill="none"
+                stroke="#c9a96e"
+                stroke-width="1.5"
+              />
+
+              <line
+                class="silam-line axis-v"
+                x1="50"
+                y1="6"
+                x2="50"
+                y2="94"
+                stroke="#c9a96e"
+                stroke-width="0.75"
+                opacity="0.4"
+                stroke-dasharray="4 4"
+              />
+              <line
+                class="silam-line axis-h"
+                x1="6"
+                y1="50"
+                x2="94"
+                y2="50"
+                stroke="#c9a96e"
+                stroke-width="0.75"
+                opacity="0.4"
+                stroke-dasharray="4 4"
+              />
+
+              <circle
+                cx="50"
+                cy="50"
+                r="3.5"
+                fill="#c9a96e"
+                class="silam-node node-center"
+              />
+              <circle cx="50" cy="6" r="2" fill="#c9a96e" class="silam-node" />
+              <circle cx="94" cy="50" r="2" fill="#c9a96e" class="silam-node" />
+              <circle cx="50" cy="94" r="2" fill="#c9a96e" class="silam-node" />
+              <circle cx="6" cy="50" r="2" fill="#c9a96e" class="silam-node" />
+
+              <circle cx="50" cy="18" r="1.5" fill="#c9a96e" opacity="0.7" />
+              <circle cx="82" cy="50" r="1.5" fill="#c9a96e" opacity="0.7" />
+              <circle cx="50" cy="82" r="1.5" fill="#c9a96e" opacity="0.7" />
+              <circle cx="18" cy="50" r="1.5" fill="#c9a96e" opacity="0.7" />
+            </g>
           </svg>
         </div>
         <p class="loading-text">जबेगु निवास</p>
@@ -32,48 +123,69 @@
     </div>
 
     <div class="app-dashboard-container">
-      
       <aside class="app-sidebar">
         <div class="sidebar-brand-block">
           <img src="./img/logo.png" alt="Logo" class="sidebar-logo" />
           <div>
             <div class="brand-np">जबेगु निवास</div>
-            <div class="brand-en" id="active_role_badge">Verifying Portal...</div>
+            <div class="brand-en" id="active_role_badge">
+              Verifying Portal...
+            </div>
           </div>
         </div>
-        
+
         <nav class="sidebar-nav-links">
-          <a href="#" class="nav-item active"><i data-lucide="layout-dashboard"></i> <span data-i18n="nav_overview">Overview</span></a>
-          <a href="#" class="nav-item"><i data-lucide="users"></i> <span data-i18n="nav_tenants">Tenants</span></a>
-          <a href="#" class="nav-item"><i data-lucide="wallet"></i> <span data-i18n="nav_payments">Payments</span></a>
-          <a href="#" class="nav-item"><i data-lucide="file-text"></i> <span data-i18n="nav_leases">Leases & Agreements</span></a>
+          <a href="#" class="nav-item active"
+            ><i data-lucide="layout-dashboard"></i>
+            <span data-i18n="nav_overview">Overview</span></a
+          >
+          <a href="#" class="nav-item"
+            ><i data-lucide="users"></i>
+            <span data-i18n="nav_tenants">Tenants</span></a
+          >
+          <a href="#" class="nav-item"
+            ><i data-lucide="wallet"></i>
+            <span data-i18n="nav_payments">Payments</span></a
+          >
+          <a href="#" class="nav-item"
+            ><i data-lucide="file-text"></i>
+            <span data-i18n="nav_leases">Leases & Agreements</span></a
+          >
         </nav>
 
         <div class="sidebar-footer">
-          <button class="logout-action-trigger" onclick="PortalDashboard.triggerLogout()">
+          <button
+            class="logout-action-trigger"
+            onclick="PortalDashboard.triggerLogout()"
+          >
             <i data-lucide="log-out"></i> <span>प्रणाली बाहिर जानुहोस्</span>
           </button>
         </div>
       </aside>
 
       <div class="app-main-viewport">
-        
         <header class="mobile-top-bar">
           <div class="mobile-brand">
             <img src="./img/logo.png" alt="Logo" />
             <div class="brand-np">जबेगु निवास</div>
           </div>
-          <button class="mobile-logout-btn" onclick="PortalDashboard.triggerLogout()" aria-label="Secure Logout Route">
+          <button
+            class="mobile-logout-btn"
+            onclick="PortalDashboard.triggerLogout()"
+            aria-label="Secure Logout Route"
+          >
             <i data-lucide="log-out"></i>
           </button>
         </header>
 
         <div class="viewport-canvas-padding">
-          
           <div class="canvas-welcome-jumbotron">
             <div class="jumbotron-text">
               <h2 id="dynamic_welcome_title">स्वागतम्, लोड हुँदैछ...</h2>
-              <p id="dynamic_welcome_subtitle">प्रणाली सुरक्षित ढोका, इन्टरनेट, र डिजिटल लेजर नियन्त्रण क्षेत्र।</p>
+              <p id="dynamic_welcome_subtitle">
+                प्रणाली सुरक्षित ढोका, इन्टरनेट, र डिजिटल लेजर नियन्त्रण
+                क्षेत्र।
+              </p>
             </div>
             <div class="live-time-ticker">
               <i data-lucide="shield-check" class="success-icon"></i>
@@ -82,22 +194,34 @@
           </div>
 
           <div id="rentee_workspace" class="hide">
-            
             <div class="modern-metrics-row">
               <div class="metric-glass-card border-alert">
-                <div class="card-icon-wrap bg-alert-soft"><i data-lucide="credit-card" class="text-alert"></i></div>
+                <div class="card-icon-wrap bg-alert-soft">
+                  <i data-lucide="credit-card" class="text-alert"></i>
+                </div>
                 <div class="card-data">
                   <span class="card-label">चालु महिनाको कुल बक्यौता</span>
-                  <h3 class="card-main-number text-alert" id="tenant_due_display">रू १५,५४०.००</h3>
-                  <span class="card-meta-desc">मासिक भाडा + बिजुली (रू १२/युनिट)</span>
+                  <h3
+                    class="card-main-number text-alert"
+                    id="tenant_due_display"
+                  >
+                    रू १५,५४०.००
+                  </h3>
+                  <span class="card-meta-desc"
+                    >मासिक भाडा + बिजुली (रू १२/युनिट)</span
+                  >
                 </div>
               </div>
               <div class="metric-glass-card">
-                <div class="card-icon-wrap bg-success-soft"><i data-lucide="wifi" class="text-success"></i></div>
+                <div class="card-icon-wrap bg-success-soft">
+                  <i data-lucide="wifi" class="text-success"></i>
+                </div>
                 <div class="card-data">
                   <span class="card-label">वाइफाइ यन्त्र नेटवर्क स्थिति</span>
                   <h3 class="card-main-number text-success">४ यन्त्रहरू</h3>
-                  <span class="card-meta-desc">MAC Filtering & Firewall Locks Active</span>
+                  <span class="card-meta-desc"
+                    >MAC Filtering & Firewall Locks Active</span
+                  >
                 </div>
               </div>
             </div>
@@ -105,23 +229,49 @@
             <div class="dashboard-split-layout">
               <div class="content-glass-card large-span">
                 <div class="card-header-inline">
-                  <h4><i data-lucide="qr-code"></i> Fonepay/NepalQR डिजिटल भुक्तानी</h4>
-                  <span class="badge status-pending" id="tenant_status_badge">PENDING</span>
+                  <h4>
+                    <i data-lucide="qr-code"></i> Fonepay/NepalQR डिजिटल
+                    भुक्तानी
+                  </h4>
+                  <span class="badge status-pending" id="tenant_status_badge"
+                    >PENDING</span
+                  >
                 </div>
-                
+
                 <div class="qr-payment-flex-module">
                   <div class="qr-wrapper-frame">
-                    <img id="tenant_qr" src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=00020101021230300010NEPALPAY01159841000000520400005303524540815540.005802NP5915LaxmiP_Jabegu6008BHAKTAPUR62110107INV10246304" alt="Global IME Bank QR Code Anchor">
+                    <img
+                      id="tenant_qr"
+                      src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=00020101021230300010NEPALPAY01159841000000520400005303524540815540.005802NP5915LaxmiP_Jabegu6008BHAKTAPUR62110107INV10246304"
+                      alt="Global IME Bank QR Code Anchor"
+                    />
                   </div>
                   <div class="qr-instructions">
                     <h5>सुरक्षित Global IME बैंक खाता क्युआर</h5>
-                    <p>यो क्युआर कोडमा हालको बाँकी रकम स्वचालित रूपमा जोडिएको छ। कुनै पनि मोबाइल बैंकिङ एप मार्फत स्क्यान गर्दा सिधै तोकिएको रकम दाखिला हुनेछ।</p>
-                    
+                    <p>
+                      यो क्युआर कोडमा हालको बाँकी रकम स्वचालित रूपमा जोडिएको छ।
+                      कुनै पनि मोबाइल बैंकिङ एप मार्फत स्क्यान गर्दा सिधै
+                      तोकिएको रकम दाखिला हुनेछ।
+                    </p>
+
                     <div class="receipt-action-group">
-                      <label for="receipt_file_input" class="modern-file-trigger-btn">
-                        <i data-lucide="upload-cloud"></i> भुक्तानी प्रमाण / स्क्रिनसट अपलोड गर्नुहोस्
+                      <label
+                        for="receipt_file_input"
+                        class="modern-file-trigger-btn"
+                      >
+                        <i data-lucide="upload-cloud"></i> भुक्तानी प्रमाण /
+                        स्क्रिनसट अपलोड गर्नुहोस्
                       </label>
-                      <input type="file" id="receipt_file_input" accept="image/*" onchange="alert('भुक्तानी प्रमाण सुरक्षित रूपमा सर्भरमा दर्ता भयो।')" />
+                      <input
+                        type="file"
+                        id="receipt_file_input"
+                        accept="image/*"
+                        onchange="
+                          alert(
+                            'भुक्तानी प्रमाण सुरक्षित रूपमा सर्भरमा दर्ता भयो।',
+                          )
+                        "
+                      />
                     </div>
                   </div>
                 </div>
@@ -131,38 +281,56 @@
                 <div class="card-header-inline">
                   <h4><i data-lucide="file-check"></i> सम्झौता र कागजातहरू</h4>
                 </div>
-                <p class="panel-inner-text">किल्ला नम्बर ३५३४ मा निर्मित सम्पति सम्बन्धी डिजिटल प्रमाणित सम्झौता पत्र।</p>
-                
+                <p class="panel-inner-text">
+                  किल्ला नम्बर ३५३४ मा निर्मित सम्पति सम्बन्धी डिजिटल प्रमाणित
+                  सम्झौता पत्र।
+                </p>
+
                 <div class="action-buttons-stack">
-                  <button class="modern-secondary-btn" onclick="alert('डिजिटल भाडा सम्झौता डाउनलोड हुँदैछ...')">
+                  <button
+                    class="modern-secondary-btn"
+                    onclick="alert('डिजिटल भाडा सम्झौता डाउनलोड हुँदैछ...')"
+                  >
                     <i data-lucide="download"></i> सम्झौता पत्र डाउनलोड (PDF)
                   </button>
-                  <button class="modern-secondary-btn" onclick="alert('पछिल्लो भुक्तानी रसिद डाउनलोड हुँदैछ...')">
-                    <i data-lucide="printer"></i> भुक्तानी रसिद प्रिन्ट गर्नुहोस्
+                  <button
+                    class="modern-secondary-btn"
+                    onclick="alert('पछिल्लो भुक्तानी रसिद डाउनलोड हुँदैछ...')"
+                  >
+                    <i data-lucide="printer"></i> भुक्तानी रसिद प्रिन्ट
+                    गर्नुहोस्
                   </button>
                 </div>
               </div>
             </div>
-
           </div>
 
           <div id="owner_workspace" class="hide">
-            
             <div class="modern-metrics-row">
               <div class="metric-glass-card">
-                <div class="card-icon-wrap bg-primary-soft"><i data-lucide="trending-up" class="text-primary"></i></div>
+                <div class="card-icon-wrap bg-primary-soft">
+                  <i data-lucide="trending-up" class="text-primary"></i>
+                </div>
                 <div class="card-data">
                   <span class="card-label">अनुमानित मासिक आम्दानी</span>
                   <h3 class="card-main-number">रू ४५,०००.००</h3>
-                  <span class="card-meta-desc">३ वटा फ्ल्याट एकाइहरू संकलन योग्य</span>
+                  <span class="card-meta-desc"
+                    >३ वटा फ्ल्याट एकाइहरू संकलन योग्य</span
+                  >
                 </div>
               </div>
               <div class="metric-glass-card">
-                <div class="card-icon-wrap bg-success-soft"><i data-lucide="check-circle-2" class="text-success"></i></div>
+                <div class="card-icon-wrap bg-success-soft">
+                  <i data-lucide="check-circle-2" class="text-success"></i>
+                </div>
                 <div class="card-data">
                   <span class="card-label">प्राप्त भुक्तानी लेजर</span>
-                  <h3 class="card-main-number" id="owner_collected_display">रू ३०,०००.००</h3>
-                  <span class="card-meta-desc">२ वटा फ्ल्याट एकाइहरू फत्ते भएको</span>
+                  <h3 class="card-main-number" id="owner_collected_display">
+                    रू ३०,०००.००
+                  </h3>
+                  <span class="card-meta-desc"
+                    >२ वटा फ्ल्याट एकाइहरू फत्ते भएको</span
+                  >
                 </div>
               </div>
             </div>
@@ -170,7 +338,10 @@
             <div class="dashboard-split-layout">
               <div class="content-glass-card large-span">
                 <div class="card-header-inline">
-                  <h4><i data-lucide="bar-chart-3"></i> वित्तीय आम्दानी तथा युटिलिटी ग्राफिक्स</h4>
+                  <h4>
+                    <i data-lucide="bar-chart-3"></i> वित्तीय आम्दानी तथा
+                    युटिलिटी ग्राफिक्स
+                  </h4>
                 </div>
                 <div class="chart-canvas-container">
                   <canvas id="incomeAnalyticsChart"></canvas>
@@ -179,26 +350,45 @@
 
               <div class="content-glass-card small-span">
                 <div class="card-header-inline">
-                  <h4><i data-lucide="calculator"></i> नयाँ महिनाको बिल जारी फारम</h4>
+                  <h4>
+                    <i data-lucide="calculator"></i> नयाँ महिनाको बिल जारी फारम
+                  </h4>
                 </div>
-                <p class="panel-inner-text">बिजुलीको खपत युनिट राख्नुहोस्, प्रणालीले स्वतः रू १२ का दरले क्युआर जेनेरेट गर्नेछ।</p>
-                
+                <p class="panel-inner-text">
+                  बिजुलीको खपत युनिट राख्नुहोस्, प्रणालीले स्वतः रू १२ का दरले
+                  क्युआर जेनेरेट गर्नेछ।
+                </p>
+
                 <div class="modern-input-field-block">
                   <label class="field-label">बिजुली खपत युनिट (Units)</label>
-                  <input type="number" id="owner_units" class="modern-dashboard-input" placeholder="उदा: ४५ युनिट" />
+                  <input
+                    type="number"
+                    id="owner_units"
+                    class="modern-dashboard-input"
+                    placeholder="उदा: ४५ युनिट"
+                  />
                 </div>
-                
-                <button class="modern-primary-action-btn" onclick="PortalDashboard.calculateNewInvoice()">
+
+                <button
+                  class="modern-primary-action-btn"
+                  onclick="PortalDashboard.calculateNewInvoice()"
+                >
                   <i data-lucide="refresh-cw"></i> गणना गरि बिल अपडेट गर्नुहोस्
                 </button>
               </div>
             </div>
 
-            <div class="content-glass-card full-width-span" style="margin-top: 20px;">
+            <div
+              class="content-glass-card full-width-span"
+              style="margin-top: 20px"
+            >
               <div class="card-header-inline">
-                <h4><i data-lucide="clipboard-list"></i> डेरावाला विवरण तथा भाडा लेजर स्थिति</h4>
+                <h4>
+                  <i data-lucide="clipboard-list"></i> डेरावाला विवरण तथा भाडा
+                  लेजर स्थिति
+                </h4>
               </div>
-              
+
               <div class="modern-table-scroll-frame">
                 <table class="modern-dashboard-table">
                   <thead>
@@ -219,12 +409,30 @@
                         </div>
                       </td>
                       <td>भुईंतल्ला (३.५ तल्ला घर)</td>
-                      <td><strong class="text-alert" id="ledger_amount_label">रू १५,५४०</strong></td>
-                      <td><span class="badge status-pending" id="admin_badge">PENDING</span></td>
+                      <td>
+                        <strong class="text-alert" id="ledger_amount_label"
+                          >रू १५,५४०</strong
+                        >
+                      </td>
+                      <td>
+                        <span class="badge status-pending" id="admin_badge"
+                          >PENDING</span
+                        >
+                      </td>
                       <td>
                         <div class="table-action-button-row">
-                          <button class="table-mini-action-btn accept-trigger" onclick="PortalDashboard.updateLedgerState('PAID')">Accept</button>
-                          <button class="table-mini-action-btn hold-trigger" onclick="PortalDashboard.updateLedgerState('HOLD')">Hold</button>
+                          <button
+                            class="table-mini-action-btn accept-trigger"
+                            onclick="PortalDashboard.updateLedgerState('PAID')"
+                          >
+                            Accept
+                          </button>
+                          <button
+                            class="table-mini-action-btn hold-trigger"
+                            onclick="PortalDashboard.updateLedgerState('HOLD')"
+                          >
+                            Hold
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -232,9 +440,219 @@
                 </table>
               </div>
             </div>
+          </div>
+        </div>
 
+        <div id="tenants_workspace" class="viewport-canvas-padding hide">
+          <div class="canvas-welcome-jumbotron">
+            <div class="jumbotron-text">
+              <h2>डेरावाला विवरण तथा व्यवस्थापन</h2>
+              <p>
+                घरमा बस्ने सम्पूर्ण डेरावालाहरूको सक्रिय विवरण र कोठा स्थिति
+              </p>
+            </div>
           </div>
 
+          <div class="content-glass-card">
+            <div class="card-header-inline">
+              <h4><i data-lucide="users"></i> हालका सक्रिय डेरावालाहरू</h4>
+              <span class="badge status-paid">कुल डेरावाला: ३</span>
+            </div>
+
+            <div class="modern-table-scroll-frame">
+              <table class="modern-dashboard-table">
+                <thead>
+                  <tr>
+                    <th>डेरावालाको विवरण</th>
+                    <th>कोठा / तल्ला</th>
+                    <th>पेशा / सम्बद्धता</th>
+                    <th>सदस्य संख्या</th>
+                    <th>स्थिति</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <div class="table-user-meta">
+                        <span class="user-main-name">नारायण श्रेष्ठ</span>
+                        <span class="user-sub-phone">९८५१XXXXXX</span>
+                      </div>
+                    </td>
+                    <td>भुईंतल्ला (Room 101)</td>
+                    <td>व्यवसाय (किराना पसल)</td>
+                    <td>४ जना</td>
+                    <td><span class="badge status-paid">सक्रिय</span></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="table-user-meta">
+                        <span class="user-main-name">सरिता राई</span>
+                        <span class="user-sub-phone">९८४१XXXXXX</span>
+                      </div>
+                    </td>
+                    <td>पहिलो तल्ला (Room 202)</td>
+                    <td>बैंकिङ क्षेत्र</td>
+                    <td>२ जना</td>
+                    <td><span class="badge status-paid">सक्रिय</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="payments_workspace" class="viewport-canvas-padding hide">
+          <div class="canvas-welcome-jumbotron">
+            <div class="jumbotron-text">
+              <h2>भाडा भुक्तानी लेजर तथा इतिहास</h2>
+              <p>मासिक भाडा, विजुली, र पानीको वित्तीय कारोबारको सङ्ग्रह</p>
+            </div>
+          </div>
+
+          <div class="content-glass-card">
+            <div class="card-header-inline">
+              <h4><i data-lucide="history"></i> भुक्तानी कारोबार इतिहास</h4>
+            </div>
+
+            <div class="modern-table-scroll-frame">
+              <table class="modern-dashboard-table">
+                <thead>
+                  <tr>
+                    <th>मिति (महिना)</th>
+                    <th>डेरावाला</th>
+                    <th>विवरण (भाडा + युटिलिटी)</th>
+                    <th>कुल रकम</th>
+                    <th>माध्यम</th>
+                    <th>स्थिति</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>२०८३ जेठ</td>
+                    <td>नारायण श्रेष्ठ</td>
+                    <td>घरभाडा (१५,०००) + विजुली (५४०)</td>
+                    <td><strong>रू १५,५४०</strong></td>
+                    <td>Fonepay QR</td>
+                    <td><span class="badge status-paid">सफल</span></td>
+                  </tr>
+                  <tr>
+                    <td>२०८३ वैशाख</td>
+                    <td>सरिता राई</td>
+                    <td>घरभाडा (१८,०००) + विजुली (३20)</td>
+                    <td><strong>रू १८,३२०</strong></td>
+                    <td>नगद (Cash)</td>
+                    <td><span class="badge status-paid">सफल</span></td>
+                  </tr>
+                  <tr>
+                    <td>२०८३ वैशाख</td>
+                    <td>नारायण श्रेष्ठ</td>
+                    <td>घरभाडा (१५,०००) + विजुली (४१०)</td>
+                    <td><strong>रू १५,४१०</strong></td>
+                    <td>Fonepay QR</td>
+                    <td><span class="badge status-hold">पेन्डिङ</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="lease_workspace" class="viewport-canvas-padding hide">
+          <div class="canvas-welcome-jumbotron">
+            <div class="jumbotron-text">
+              <h2>घरबहाल सम्झौता तथा सरकारी कागजात</h2>
+              <p>कानुनी सम्झौता पत्र, नागरिकता प्रतिलिपि र कोठा बहाल नियमहरू</p>
+            </div>
+          </div>
+
+          <div class="dashboard-split-layout">
+            <div class="content-glass-card">
+              <div class="card-header-inline">
+                <h4><i data-lucide="file-text"></i> सक्रिय सम्झौता पत्रहरू</h4>
+              </div>
+              <div class="modern-table-scroll-frame">
+                <table class="modern-dashboard-table">
+                  <thead>
+                    <tr>
+                      <th>डेरावाला</th>
+                      <th>अवधि (बाँकी दिन)</th>
+                      <th>कागजात पत्र</th>
+                      <th>कार्य</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>नारायण श्रेष्ठ</td>
+                      <td>१ वर्ष (१४2 दिन बाँकी)</td>
+                      <td>सम्झौता पत्र.pdf</td>
+                      <td>
+                        <button class="table-mini-action-btn accept-trigger">
+                          <i
+                            data-lucide="download"
+                            style="width: 12px; height: 12px"
+                          ></i>
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>सरिता राई</td>
+                      <td>२ वर्ष (३१० दिन बाँकी)</td>
+                      <td>सम्झौता पत्र_राई.pdf</td>
+                      <td>
+                        <button class="table-mini-action-btn accept-trigger">
+                          <i
+                            data-lucide="download"
+                            style="width: 12px; height: 12px"
+                          ></i>
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="content-glass-card">
+              <div class="card-header-inline">
+                <h4>
+                  <i data-lucide="upload-cloud"></i> नयाँ कागजात सुरक्षित
+                  गर्नुहोस्
+                </h4>
+              </div>
+              <div class="receipt-action-group">
+                <div class="modern-input-field-block">
+                  <label class="field-label"
+                    >डेरावालाको नाम छनौट गर्नुहोस्</label
+                  >
+                  <input
+                    type="text"
+                    class="modern-dashboard-input"
+                    placeholder="उदाहरण: नारायण श्रेष्ठ"
+                  />
+                </div>
+                <div class="modern-input-field-block">
+                  <label class="field-label">कागजातको प्रकार</label>
+                  <input
+                    type="text"
+                    class="modern-dashboard-input"
+                    placeholder="उदाहरण: नागरिकता / सम्झौता पत्र"
+                  />
+                </div>
+                <label class="modern-file-trigger-btn" style="cursor: pointer">
+                  <i data-lucide="file-plus"></i> फाइल चयन गर्नुहोस् (PDF/Image)
+                  <input type="file" />
+                </label>
+                <button
+                  class="modern-primary-action-btn"
+                  style="margin-top: 10px"
+                >
+                  <i data-lucide="save"></i> कागजात सेभ गर्नुहोस्
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
