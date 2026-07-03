@@ -13,13 +13,21 @@ const IndexObj = {
   authenticateUser: function () {
     $("#login_msg").text("");
     const username = $("#account_input").val().trim().toLowerCase();
-    const password = $("#account_password").val();
+    const passwordPlain = $("#account_password").val(); // सादा पासवर्ड लिने
 
-    if (!username || !password) {
+    // बुग फिक्स: पासवर्ड र युजरनेम खाली भए नभएको जाँच गर्ने
+    if (!username || !passwordPlain) {
       $("#login_msg").text(
         "कृपया प्रयोगकर्ता नाम र पासवर्ड प्रविष्ट गर्नुहोस्।",
       );
       return;
+    }
+
+    // नोट: यो ह्यास विधिको प्रयोग 'नयाँ डेरावाला दर्ता गर्दा' वा 'पासवर्ड सुरक्षित परिवर्तन गर्दा' ब्याकअप फाइलमा पठाउन गर्नुपर्छ।
+    // लगइन गर्दा भने भण्डारण गरिएको ह्यास र इनपुट पासवर्ड दाँजिन्छ (bcrypt.compareSync)।
+    let hashedPassword = "";
+    if (typeof dcodeIO !== 'undefined' && dcodeIO.bcrypt) {
+      hashedPassword = dcodeIO.bcrypt.hashSync(passwordPlain, 10);
     }
 
     // Role-Based Route Navigation Router Rules
@@ -33,118 +41,9 @@ const IndexObj = {
   },
 };
 
-// const PortalDashboard = {
-//   analyticsChartInstance: null,
-
-//   init: function() {
-//     setTimeout(function () {
-//       $("#body_loading").addClass("hide");
-//     }, 600);
-
-//     // Render Scalable Lucide Icons Framework Vector Graphics
-//     if (typeof lucide !== 'undefined') {
-//       lucide.createIcons();
-//     }
-
-//     const params = new URLSearchParams(window.location.search);
-//     const userRole = params.get("role");
-
-//     this.renderRoleWorkspace(userRole);
-//   },
-
-//   renderRoleWorkspace: function(role) {
-//     if (role === "owner") {
-//       $("#owner_workspace").removeClass("hide");
-//       $("#active_role_badge").text("Owner Account");
-//       $("#dynamic_welcome_title").text("नमस्ते, घरधनी बुबा (Devendra)");
-//       this.initIncomeAnalyticsChart();
-//     } else if (role === "rentee") {
-//       $("#rentee_workspace").removeClass("hide");
-//       $("#active_role_badge").text("Tenant Account");
-//       $("#dynamic_welcome_title").text("नमस्ते, नारायण श्रेष्ठ");
-//     } else {
-//       window.location.href = "index.html";
-//     }
-//   },
-
-//   initIncomeAnalyticsChart: function() {
-//     const ctx = document.getElementById('incomeAnalyticsChart');
-//     if (!ctx) return;
-
-//     // Destroy existing instance to prevent runtime garbage allocation
-//     if (this.analyticsChartInstance) {
-//       this.analyticsChartInstance.destroy();
-//     }
-
-//     // Initialize Chart.js Analytics Data Layers
-//     this.analyticsChartInstance = new Chart(ctx, {
-//       type: 'bar',
-//       data: {
-//         labels: ['बैशाख', 'जेठ', 'असार', 'साउन', 'भदौ', 'असोज'],
-//         datasets: [{
-//           label: 'मासिक आम्दानी संकलन (रू)',
-//           data: [45000, 45000, 48200, 45000, 52100, 45540],
-//           backgroundColor: 'rgba(215, 176, 109, 0.6)',
-//           borderColor: '#d7b06d',
-//           borderWidth: 2,
-//           borderRadius: 6
-//         }]
-//       },
-//       options: {
-//         responsive: true,
-//         maintainAspectRatio: false,
-//         plugins: {
-//           legend: { display: false }
-//         },
-//         scales: {
-//           y: {
-//             grid: { color: 'rgba(255, 255, 255, 0.05)' },
-//             ticks: { color: 'rgba(245, 248, 251, 0.6)' }
-//           },
-//           x: {
-//             grid: { display: false },
-//             ticks: { color: 'rgba(245, 248, 251, 0.6)' }
-//           }
-//         }
-//       }
-//     });
-//   },
-
-//   calculateNewInvoice: function() {
-//     const units = parseInt($("#owner_units").val()) || 0;
-//     const baseRent = 15000;
-//     const ratePerUnit = 12; // Flat billing baseline condition rule
-//     const computedSum = baseRent + (units * ratePerUnit);
-
-//     // Live sync data changes across matrix layout components
-//     $("#tenant_due_display").text(`रू ${computedSum.toLocaleString()}.००`);
-//     $("#ledger_amount_label").text(`रू ${computedSum.toLocaleString()}`);
-//     $("#owner_collected_display").text(`रू ${(30000 + computedSum).toLocaleString()}.००`);
-
-//     // Mutate and update dynamic EMVCo/Fonepay Locked Payload matching billing metrics
-//     const updatedPayload = `00020101021230300010NEPALPAY0115984100000052040000530352454${computedSum.toFixed(2).length}${computedSum.toFixed(2)}5802NP5915LaxmiP_Jabegu6008BHAKTAPUR62110107INV10246304`;
-//     $("#tenant_qr").attr("src", `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(updatedPayload)}`);
-
-//     alert(`विवरण सफलतापूर्वक अद्यावधिक भयो! नयाँ कुल भाडा महशुल: रू ${computedSum}`);
-//   },
-
-//   updateLedgerState: function(status) {
-//     const badge = $("#admin_badge, #tenant_status_badge");
-//     badge.removeClass("status-pending status-paid status-hold");
-//     badge.addClass(`status-${status.toLowerCase()}`).text(status);
-//     alert(`भाडा लेजर रेकर्ड स्थिति [${status}] मा अद्यावधिक भयो।`);
-//   },
-
-//   triggerLogout: function() {
-//     window.location.href = "index.html";
-//   }
-// };
-
-// Application Router Allocation Layer Lifecycle Execution
-
 const PortalDashboard = {
   analyticsChartInstance: null,
-  currentRole: null, // Tracks the dynamic role session determined by URL search params
+  currentRole: null, 
 
   init: function () {
     const self = this;
@@ -153,7 +52,6 @@ const PortalDashboard = {
       $("#body_loading").addClass("hide");
     }, 600);
 
-    // Render Scalable Lucide Icons Framework Vector Graphics
     if (typeof lucide !== "undefined") {
       lucide.createIcons();
     }
@@ -161,10 +59,7 @@ const PortalDashboard = {
     const params = new URLSearchParams(window.location.search);
     this.currentRole = params.get("role");
 
-    // 1. Initial view setup based on URL role
     this.renderRoleWorkspace(this.currentRole);
-
-    // 2. Bind navigation event listeners to handle your new pages safely
     this.initNavigation();
   },
 
@@ -186,44 +81,35 @@ const PortalDashboard = {
   initNavigation: function () {
     const self = this;
 
-    // Handles sidebar click matching your new data-target architecture
     $(".nav-item, .mobile-nav-link").on("click", function (e) {
       e.preventDefault();
 
-      // Switch visual active link indicators
       $(".nav-item").removeClass("active");
       $(this).addClass("active");
 
       let targetWorkspace = $(this).attr("data-target");
 
-      // Dynamic Role Routing Strategy for generic overview queries
       if (targetWorkspace === "overview_workspace") {
         targetWorkspace =
           self.currentRole === "owner" ? "owner_workspace" : "rentee_workspace";
       }
 
-      // Safe clean sweep: hide all existing views before toggling target unhide transitions
       $(
         "#owner_workspace, #rentee_workspace, #tenants_workspace, #payments_workspace, #lease_workspace",
       ).addClass("hide");
 
-      // Reveal targeted section container element viewport
       $("#" + targetWorkspace).removeClass("hide");
 
-      // Re-render structural vectors if loaded inside newly active hidden wrappers
       if (typeof lucide !== "undefined") {
         lucide.createIcons();
       }
 
-      // Auto-collapse mobile navigation slide draw layouts safely
       if ($(window).width() <= 1024) {
         $(".app-sidebar").css("transform", "translateX(-100%)");
       }
     });
 
-    // Mobile Navigation Draw Layout Toggle Trigger Wireframes
     $(".mobile-top-bar button").on("click", function () {
-      // Toggle side-pane visual offsets
       const sidebar = $(".app-sidebar");
       if (
         sidebar.css("transform") === "none" ||
@@ -240,12 +126,10 @@ const PortalDashboard = {
     const ctx = document.getElementById("incomeAnalyticsChart");
     if (!ctx) return;
 
-    // Destroy existing instance to prevent runtime garbage allocation
     if (this.analyticsChartInstance) {
       this.analyticsChartInstance.destroy();
     }
 
-    // Initialize Chart.js Analytics Data Layers
     this.analyticsChartInstance = new Chart(ctx, {
       type: "bar",
       data: {
@@ -284,17 +168,15 @@ const PortalDashboard = {
   calculateNewInvoice: function () {
     const units = parseInt($("#owner_units").val()) || 0;
     const baseRent = 15000;
-    const ratePerUnit = 12; // Flat billing baseline condition rule
+    const ratePerUnit = 12; 
     const computedSum = baseRent + units * ratePerUnit;
 
-    // Live sync data changes across matrix layout components
     $("#tenant_due_display").text(`रू ${computedSum.toLocaleString()}.००`);
     $("#ledger_amount_label").text(`रू ${computedSum.toLocaleString()}`);
     $("#owner_collected_display").text(
       `रू ${(30000 + computedSum).toLocaleString()}.००`,
     );
 
-    // Mutate and update dynamic EMVCo/Fonepay Locked Payload matching billing metrics
     const updatedPayload = `00020101021230300010NEPALPAY0115984100000052040000530352454${computedSum.toFixed(2).length}${computedSum.toFixed(2)}5802NP5915LaxmiP_Jabegu6008BHAKTAPUR62110107INV10246304`;
     $("#tenant_qr").attr(
       "src",
@@ -319,21 +201,64 @@ const PortalDashboard = {
 };
 
 $(document).ready(function () {
-  // 1. Check if we are inside the active property ledger workspace view
   if (window.location.pathname.includes("rent-portal.html")) {
     PortalDashboard.init();
   } else {
-    // 2. FALLBACK SAFE RUNTIME: Execute landing page initialization immediately 
-    // if loadConfig hasn't initialized it, clearing the loading animation.
     if (typeof IndexObj !== "undefined") {
       IndexObj.init();
     }
   }
 });
 
-// Keep this wrapper intact in case your networking hardware pushes JSON data streams
 function loadConfig(data) {
   if (typeof IndexObj !== "undefined") {
     IndexObj.init(data);
   }
+}
+
+function fetchTenantsData() {
+  const REPO_OWNER = "Ningsang-Jabegu";
+  const REPO_NAME = "jabegu-rent-portal-backup";
+  const FILE_PATH = "data/users/tenants.json";
+  const GITHUB_TOKEN = "YOUR_PERSONAL_ACCESS_TOKEN"; // तपाईँको सेक्रेट टोकन
+
+  $.ajax({
+    url: `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,
+    type: "GET",
+    headers: {
+      "Authorization": `token ${GITHUB_TOKEN}`,
+      "Accept": "application/vnd.github.v3+json"
+    },
+    success: function(response) {
+      // GitHub ले फाइलको कन्टेन्ट 'Base64' इन्कोडिङमा फर्काउँछ
+      const decodedData = atob(response.content);
+      const tenantsList = JSON.parse(decodedData);
+      console.log("खोजिएको डेरावाला डेटा:", tenantsList);
+      
+      // यहाँ तपाईँले युजरनेम र पासवर्ड म्याच गराउने लोजिक राख्न सक्नुहुन्छ
+    },
+    error: function(err) {
+      console.error("फाइल खोज्दा वा लोड गर्दा त्रुटि भयो:", err);
+    }
+  });
+}
+
+
+function triggerCloudBackup(path, data, message) {
+  $.ajax({
+    url: "/api/backup", // Vercel को सर्भरलेस एन्डपोइन्ट
+    type: "POST",
+    contentType: "application/json",
+    data: JSON.stringify({
+      filePath: path,
+      jsonData: data,
+      commitMessage: message
+    }),
+    success: function (response) {
+      console.log("ब्याकअप स्थिति:", response.message);
+    },
+    error: function (xhr, status, error) {
+      console.error("सुरक्षित ब्याकअप असफल भयो:", xhr.responseJSON ? xhr.responseJSON.error : error);
+    }
+  });
 }

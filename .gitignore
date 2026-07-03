@@ -1,0 +1,15 @@
+# Local Environment Variables (अनिवार्य रूपमा इग्नोर गर्ने)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Dependency Folders (यदि भविष्यमा Node.js/NPM प्रयोग गर्नुभयो भने)
+node_modules/
+dist/
+build/
+
+# Operating System Files
+.DS_Store
+Thumbs.db
