@@ -13,31 +13,41 @@ const IndexObj = {
   authenticateUser: function () {
     $("#login_msg").text("");
     const username = $("#account_input").val().trim().toLowerCase();
-    const passwordPlain = $("#account_password").val(); // सादा पासवर्ड लिने
+    const passwordPlain = $("#account_password").val();
 
-    // बुग फिक्स: पासवर्ड र युजरनेम खाली भए नभएको जाँच गर्ने
+    // युजरनेम र पासवर्ड खाली भए नभएको जाँच गर्ने
     if (!username || !passwordPlain) {
-      $("#login_msg").text(
-        "कृपया प्रयोगकर्ता नाम र पासवर्ड प्रविष्ट गर्नुहोस्।",
-      );
+      $("#login_msg").text("कृपया प्रयोगकर्ता नाम र पासवर्ड प्रविष्ट गर्नुहोस्।");
       return;
     }
 
-    // नोट: यो ह्यास विधिको प्रयोग 'नयाँ डेरावाला दर्ता गर्दा' वा 'पासवर्ड सुरक्षित परिवर्तन गर्दा' ब्याकअप फाइलमा पठाउन गर्नुपर्छ।
-    // लगइन गर्दा भने भण्डारण गरिएको ह्यास र इनपुट पासवर्ड दाँजिन्छ (bcrypt.compareSync)।
-    let hashedPassword = "";
-    if (typeof dcodeIO !== 'undefined' && dcodeIO.bcrypt) {
-      hashedPassword = dcodeIO.bcrypt.hashSync(passwordPlain, 10);
-    }
+    // लगइन बटनलाई डिसेबल गर्ने र एनिमेसन देखाउने
+    $("#login_btn").prop("disabled", true).find(".btn-text").text("प्रमाणिकरण हुँदैछ...");
 
-    // Role-Based Route Navigation Router Rules
-    if (username === "devendra" || username === "admin") {
-      window.location.href = "rent-portal.html?role=owner";
-    } else if (username === "tenant" || username === "rentee") {
-      window.location.href = "rent-portal.html?role=rentee";
-    } else {
-      $("#login_msg").text("त्रुटि: अवैध खाता पहिचान वा पासवर्ड मिलेन।");
-    }
+    // Vercel Serverless API सँग सञ्चार गर्ने
+    $.ajax({
+      url: "/api/login",
+      type: "POST",
+      contentType: "application/json",
+      data: JSON.stringify({
+        username: username,
+        password: passwordPlain
+      }),
+      success: function (response) {
+        if (response.success) {
+          // सफलता: प्राप्त रोलको आधारमा ड्यासबोर्डमा पठाउने
+          window.location.href = `rent-portal.html?role=${response.role}`;
+        }
+      },
+      error: function (xhr) {
+        // विफलता: सर्भरले पठाएको त्रुटि सन्देश स्क्रिनमा देखाउने
+        const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : "API सँग जडान हुन सकेन।";
+        $("#login_msg").text(errorMsg);
+        
+        // बटनलाई पुनः सक्रिय बनाउने
+        $("#login_btn").prop("disabled", false).find(".btn-text").text("लगइन गर्नुहोस्");
+      }
+    });
   },
 };
 
