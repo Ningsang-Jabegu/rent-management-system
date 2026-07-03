@@ -9,7 +9,7 @@ export default async function handler(req, res) {
 
   const { username, password } = req.body;
   const GITHUB_TOKEN = process.env.JABEGU_RENT_PORTAL_BACKUP_SECRET;
-  const REPO_OWNER = "Ningsang-Jabegu"; // <-- आफ्नो साँचो GitHub Username यहाँ राख्नुहोस्
+  const REPO_OWNER = "Ningsang-Jabegu"; 
   const REPO_NAME = "jabegu-rent-portal-backup";
 
   if (!username || !password) {

@@ -176,7 +176,12 @@
           </div>
 
           <!-- Right login panel -->
-          <div class="login-wrapper">
+
+          <form
+            class="login-wrapper"
+            id="login_form"
+            aria-label="Account Login"
+          >
             <div class="login-panel-header">
               <div class="panel-title-np">स्वागतम्</div>
               <div class="panel-title-en">Welcome</div>
@@ -187,7 +192,7 @@
 
               <div class="login-item login-item-fixaccount">
                 <div class="input-group">
-                  <span class="input-icon">
+                  <span class="input-icon" aria-hidden="true">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 24 24"
@@ -204,13 +209,15 @@
                     type="text"
                     id="account_input"
                     placeholder="प्रयोगकर्ता नाम (Username)"
+                    aria-label="Username"
+                    required
                   />
                 </div>
               </div>
 
               <div class="login-item login-item-fixaccount">
                 <div class="input-group">
-                  <span class="input-icon">
+                  <span class="input-icon" aria-hidden="true">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 24 24"
@@ -227,23 +234,30 @@
                     type="password"
                     id="account_password"
                     placeholder="पासवर्ड (Password)"
+                    aria-label="Password"
+                    required
                   />
                 </div>
               </div>
             </div>
 
-            <div class="login-msg" id="login_msg"></div>
+            <div
+              class="login-msg"
+              id="login_msg"
+              aria-live="assertive"
+              role="alert"
+            ></div>
 
-            <button class="login-btn" id="login_btn">
+            <button type="submit" class="login-btn" id="login_btn">
               <span class="btn-text">लगइन गर्नुहोस्</span>
-              <span class="btn-arrow">→</span>
+              <span class="btn-arrow" aria-hidden="true">→</span>
             </button>
 
-            <div class="login-footer-note">
+            <!-- <div class="login-footer-note">
               पारिवारिक सदस्यहरू स्वतः जडान हुनेछन्<br />
               <span>Family members connect automatically</span>
-            </div>
-          </div>
+            </div> -->
+          </form>
         </div>
       </div>
     </div>

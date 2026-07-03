@@ -5,8 +5,28 @@ const IndexObj = {
       $("#body_loading").addClass("hide");
     }, 800);
 
-    $("#login_btn").on("click", function () {
+    // १. युजरनेममा 'Enter' थिच्दा फोकस सिधै पासवर्डमा लैजाने
+    $("#account_input").on("keypress", function (e) {
+      if (e.which === 13) { 
+        e.preventDefault(); // फर्म सबमिट हुनबाट रोक्ने
+        $("#account_password").focus(); // पासवर्ड बक्समा फोकस सार्ने
+      }
+    });
+
+    // २. नयाँ HTML को फर्म सबमिसन इभेन्ट क्याप्चर गर्ने (Enter र Button Click दुवै यसैले काम गर्छ)
+    // यसले पेज रिफ्रेस (Reload) हुन दिँदैन
+    $("#login_form").on("submit", function (e) {
+      e.preventDefault(); // AJAX कल नसकिँदासम्म पेज रोक्ने (पेज रिफ्रेस हुन नदिने)
       self.authenticateUser();
+    });
+
+    // ३. पुराना केही कम्प्युटर वा ब्राउजरमा ब्याकअपको रूपमा क्लिक पनि चलिरहोस् भन्नका लागि:
+    $("#login_btn").on("click", function (e) {
+      // यदि यो बटन <button type="submit"> हो भने यसले स्वतः माथिको फर्म ट्रिगर गर्छ
+      // तर यदि फर्म बाहिर छ भने यसले सिधै फङ्गसन कल गर्छ
+      if ($("#login_form").length === 0) {
+        self.authenticateUser();
+      }
     });
   },
 
@@ -39,7 +59,10 @@ const IndexObj = {
           window.location.href = `rent-portal.html?role=${response.role}`;
         }
       },
-      error: function (xhr) {
+      error: function (xhr, textStatus, errorThrown) {
+        // यदि AJAX कल बीचमै काटिएको (Cancelled/Aborted) हो भने त्रुटि नदेखाउने
+        if (textStatus === "abort") return;
+
         // विफलता: सर्भरले पठाएको त्रुटि सन्देश स्क्रिनमा देखाउने
         const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : "API सँग जडान हुन सकेन।";
         $("#login_msg").text(errorMsg);
