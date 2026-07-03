@@ -751,3 +751,24 @@ body {
 .hide {
   display: none !important;
 }
+
+/* मोबाइल डिभाइसमा साइडबारलाई लुकाउने र देखाउने विशेष क्लास */
+@media (max-width: 1024px) {
+  .app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 999;
+    transform: translateX(-100%); /* सुरुमा बायाँतिर लुकेर बस्छ */
+    transition: transform 0.3s ease-in-out;
+    background: rgba(20, 20, 25, 0.95); /* ग्लास मर्फिक ब्याकग्राउन्ड */
+    backdrop-filter: blur(10px);
+    width: 280px;
+  }
+
+  /* जब साइडबारमा यो क्लास थपिन्छ, तब स्क्रिनमा देखा पर्छ */
+  .app-sidebar.sidebar-open {
+    transform: translateX(0) !important;
+  }
+}

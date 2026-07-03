@@ -189,9 +189,26 @@
       <div class="app-main-viewport">
         <header class="mobile-top-bar">
           <div class="mobile-brand">
+            <button
+              id="mobile_menu_toggle"
+              class="mobile-menu-btn"
+              aria-label="Toggle Navigation Menu"
+              style="
+                background: none;
+                border: none;
+                color: var(--dashboard-text-color, #fff);
+                cursor: pointer;
+                padding: 5px;
+                margin-right: 10px;
+              "
+            >
+              <i data-lucide="menu"></i>
+            </button>
+
             <img src="./img/logo.png" alt="Logo" />
             <div class="brand-np">जबेगु निवास</div>
           </div>
+
           <button
             class="mobile-logout-btn"
             onclick="PortalDashboard.triggerLogout()"
@@ -216,7 +233,7 @@
             </div>
           </div>
 
-          <div id="rentee_workspace" class="workspace-section  hide">
+          <div id="rentee_workspace" class="workspace-section hide">
             <div class="modern-metrics-row">
               <div class="metric-glass-card border-alert">
                 <div class="card-icon-wrap bg-alert-soft">
@@ -532,7 +549,7 @@
             </div>
           </div>
 
-          <div id="tenants_workspace" class="workspace-section  hide">
+          <div id="tenants_workspace" class="workspace-section hide">
             <div class="canvas-welcome-jumbotron">
               <div class="jumbotron-text">
                 <h2>डेरावाला विवरण तथा व्यवस्थापन (Tenants Profile)</h2>
@@ -591,7 +608,7 @@
             </div>
           </div>
 
-          <div id="payments_workspace" class="workspace-section  hide">
+          <div id="payments_workspace" class="workspace-section hide">
             <div class="canvas-welcome-jumbotron">
               <div class="jumbotron-text">
                 <h2>भाडा भुक्तानी लेजर तथा इतिहास</h2>
@@ -647,7 +664,7 @@
             </div>
           </div>
 
-          <div id="lease_workspace" class="workspace-section  hide">
+          <div id="lease_workspace" class="workspace-section hide">
             <div class="canvas-welcome-jumbotron">
               <div class="jumbotron-text">
                 <h2>घरबहाल सम्झौता तथा सरकारी कागजात</h2>
@@ -753,7 +770,7 @@
             </div>
           </div>
 
-          <div id="messages_workspace" class="workspace-section  hide">
+          <div id="messages_workspace" class="workspace-section hide">
             <div class="canvas-welcome-jumbotron">
               <div class="jumbotron-text">
                 <h2>घरधनीको सूचना बोर्ड (Notice Board)</h2>
@@ -800,7 +817,7 @@
             </div>
           </div>
 
-          <div id="maintenance_workspace" class="workspace-section  hide">
+          <div id="maintenance_workspace" class="workspace-section hide">
             <div class="canvas-welcome-jumbotron">
               <div class="jumbotron-text">
                 <h2>मर्मत सम्भार अनुरोध (Maintenance Logs)</h2>
@@ -829,7 +846,7 @@
                 />
                 <button
                   class="modern-primary-action-btn"
-                  style="width: auto; margin-top: 0; padding:0 20px;"
+                  style="width: auto; margin-top: 0; padding: 0 20px"
                   onclick="alert('समस्या घरधनी कहाँ पठाइयो।')"
                 >
                   <i data-lucide="alert-triangle"></i> रिपोर्ट गर्ने
@@ -859,7 +876,7 @@
             </div>
           </div>
 
-          <div id="floors_workspace" class="workspace-section  hide">
+          <div id="floors_workspace" class="workspace-section hide">
             <div class="canvas-welcome-jumbotron">
               <div class="jumbotron-text">
                 <h2>तल्ला र कोठाहरू (Floors & Rooms Setup)</h2>
@@ -880,7 +897,7 @@
             </div>
           </div>
 
-          <div id="billing_workspace" class="workspace-section  hide">
+          <div id="billing_workspace" class="workspace-section hide">
             <div class="canvas-welcome-jumbotron">
               <div class="jumbotron-text">
                 <h2>भाडा र बिजुली बिलिङ (Invoices & Billing)</h2>
@@ -892,7 +909,7 @@
             </div>
           </div>
 
-          <div id="rules_workspace" class="workspace-section  hide">
+          <div id="rules_workspace" class="workspace-section hide">
             <div class="canvas-welcome-jumbotron">
               <div class="jumbotron-text">
                 <h2>घरको ब्लग/नियम (House Rules & Blogs)</h2>

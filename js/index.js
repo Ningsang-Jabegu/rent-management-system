@@ -5,7 +5,7 @@ $(document).ready(function () {
   if ($("#login_form").length > 0) {
     LoginSystem.init();
   }
-  
+
   // यदि हामी ड्यासबोर्ड पेज (rent-portal.html) मा छौँ भने ड्यासबोर्ड एक्टिभ गराउने
   if ($(".app-dashboard-container").length > 0) {
     PortalDashboard.init();
@@ -43,11 +43,16 @@ const LoginSystem = {
     const passwordPlain = $("#account_password").val();
 
     if (!username || !passwordPlain) {
-      $("#login_msg").text("कृपया प्रयोगकर्ता नाम र पासवर्ड प्रविष्ट गर्नुहोस्।");
+      $("#login_msg").text(
+        "कृपया प्रयोगकर्ता नाम र पासवर्ड प्रविष्ट गर्नुहोस्।",
+      );
       return;
     }
 
-    $("#login_btn").prop("disabled", true).find(".btn-text").text("प्रमाणिकरण हुँदैछ...");
+    $("#login_btn")
+      .prop("disabled", true)
+      .find(".btn-text")
+      .text("प्रमाणिकरण हुँदैछ...");
 
     $.ajax({
       url: "/api/login",
@@ -60,12 +65,17 @@ const LoginSystem = {
         }
       },
       error: function (xhr) {
-        const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : "API सँग जडान हुन सकेन।";
+        const errorMsg = xhr.responseJSON
+          ? xhr.responseJSON.error
+          : "API सँग जडान हुन सकेन।";
         $("#login_msg").text(errorMsg);
-        $("#login_btn").prop("disabled", false).find(".btn-text").text("लगइन गर्नुहोस्");
-      }
+        $("#login_btn")
+          .prop("disabled", false)
+          .find(".btn-text")
+          .text("लगइन गर्नुहोस्");
+      },
     });
-  }
+  },
 };
 
 // ==========================================
@@ -86,7 +96,7 @@ const PortalDashboard = {
 
     // ड्यासबोर्डमा रोल अनुसारको आवरण तयार गर्ने
     this.renderWorkspace(this.currentRole);
-    
+
     // साइडबारका लिंकहरू क्लिक गर्दा सेक्सन टगल गराउने न्याभिगेसन सुचारु गर्ने
     this.initNavigation();
   },
@@ -96,17 +106,17 @@ const PortalDashboard = {
       $("#owner_workspace").removeClass("hide");
       $("#active_role_badge").text("घरधनी खाता (Owner)");
       $("#dynamic_welcome_title").text("स्वागतम्, घरधनी बुबा (Devendra)");
-      
+
       // घरधनीका लागि मात्र देखिने तत्वहरू सक्रिय गर्ने
       $(".owner-only-action").removeClass("hide");
       $(".tenant-only-action").addClass("hide");
-      
+
       this.initIncomeAnalyticsChart();
     } else if (role === "rentee") {
       $("#rentee_workspace").removeClass("hide");
       $("#active_role_badge").text("डेरावाला खाता (Tenant)");
       $("#dynamic_welcome_title").text("स्वागतम्, नारायण श्रेष्ठ");
-      
+
       // डेरावालाका लागि मात्र देखिने तत्वहरू सक्रिय गर्ने
       $(".tenant-only-action").removeClass("hide");
       $(".owner-only-action").addClass("hide");
@@ -114,37 +124,53 @@ const PortalDashboard = {
       // यदि रोल नमिलेमा सिधै लगइन विन्डोमा फिर्ता लैजाने
       window.location.href = "index.html";
     }
-    
+
     if (typeof lucide !== "undefined") lucide.createIcons();
   },
 
   initNavigation: function () {
     const self = this;
 
+    // 📱 १. मोबाइल मेनु टगल बटन क्लिक इभेन्ट (Hamburger Menu Control)
+    $("#mobile_menu_toggle").on("click", function (e) {
+      e.stopPropagation(); // क्लिक इभेन्ट बाहिर जान नदिने
+      $(".app-sidebar").toggleClass("sidebar-open");
+    });
+
+    // 🖥️ २. डेस्कटप तथा मोबाइल दुवैमा ट्याब क्लिक हुँदा सेक्सन परिवर्तन गर्ने
     $(".nav-item").on("click", function (e) {
       e.preventDefault();
 
-      // १. साइडबारको एक्टिभ क्लास व्यवस्थापन
+      // साइडबारको एक्टिभ क्लास व्यवस्थापन
       $(".nav-item").removeClass("active");
       $(this).addClass("active");
 
-      // २. क्लिक गरिएको ट्याबको टार्गेट नाम लिने
       let target = $(this).attr("data-target");
 
-      // ३. यदि 'Overview' थिचेको हो भने युजर रोल अनुसार सहि वर्कस्पेस छान्ने
+      // 'Overview' थिचेको हो भने युजर रोल अनुसार ओभरभ्यु सेट गर्ने
       if (target === "overview_workspace") {
-        target = (self.currentRole === "owner") ? "owner_workspace" : "rentee_workspace";
+        target =
+          self.currentRole === "owner" ? "owner_workspace" : "rentee_workspace";
       }
 
-      // 🔥 मुख्य फिक्स: पहिले .workspace-section क्लास भएका सबै डिभहरूलाई सुरक्षित रूपमा लुकाउने
+      // सबै वर्कस्पेस सेक्सनहरू एकमुष्ट लुकाउने
       $(".workspace-section").addClass("hide");
 
-      // ४. अब चाहिएको टार्गेट विन्डोलाई मात्र अन-हाइड (Show) गर्ने
+      // चाहिएको एउटा सेक्सन मात्र अन-हाइड (Show) गर्ने
       $("#" + target).removeClass("hide");
 
-      // ५. आइकनहरू ताजा गराउने (Lucide Icons Render)
+      // 📱 मोबाइल फिक्स: ट्याब छनौट भइसकेपछि साइडबारलाई स्वतः बन्द (Slide Out) गराउने
+      $(".app-sidebar").removeClass("sidebar-open");
+
       if (typeof lucide !== "undefined") {
         lucide.createIcons();
+      }
+    });
+
+    // ३. मोबाइलमा साइडबार खुला हुँदा बाहिर कतै क्लिक गरेमा साइडबार स्वतः बन्द गर्ने
+    $(document).on("click", function (e) {
+      if (!$(e.target).closest(".app-sidebar, #mobile_menu_toggle").length) {
+        $(".app-sidebar").removeClass("sidebar-open");
       }
     });
   },
@@ -159,20 +185,22 @@ const PortalDashboard = {
       type: "bar",
       data: {
         labels: ["वैशाख", "जेठ", "असार", "साउन", "भदौ", "असोज"],
-        datasets: [{
-          label: "मासिक आम्दानी संकलन (रू)",
-          data: [45000, 48500, 45000, 52000, 45540, 49000],
-          backgroundColor: "rgba(201, 169, 110, 0.4)",
-          borderColor: "#c9a96e",
-          borderWidth: 1.5,
-          borderRadius: 4
-        }]
+        datasets: [
+          {
+            label: "मासिक आम्दानी संकलन (रू)",
+            data: [45000, 48500, 45000, 52000, 45540, 49000],
+            backgroundColor: "rgba(201, 169, 110, 0.4)",
+            borderColor: "#c9a96e",
+            borderWidth: 1.5,
+            borderRadius: 4,
+          },
+        ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false } }
-      }
+        plugins: { legend: { display: false } },
+      },
     });
   },
 
@@ -180,26 +208,33 @@ const PortalDashboard = {
     const units = parseInt($("#owner_units").val()) || 0;
     const baseRent = 15000;
     const ratePerUnit = 12;
-    const totalBill = baseRent + (units * ratePerUnit);
+    const totalBill = baseRent + units * ratePerUnit;
 
     // दुवै ड्यासबोर्डमा रकम परिवर्तन प्रतिबिम्बित गराउने
     $("#ledger_amount_label").text(`रू ${totalBill.toLocaleString()}`);
     $("#tenant_due_display").text(`रू ${totalBill.toLocaleString()}.००`);
-    $("#owner_collected_display").text(`रू ${(30000 + totalBill).toLocaleString()}.००`);
+    $("#owner_collected_display").text(
+      `रू ${(30000 + totalBill).toLocaleString()}.००`,
+    );
 
     // नयाँ क्युआर कोड जेनेरेट गर्ने
     const updatedQRData = `00020101021230300010NEPALPAY0115984100000052040000530352454${totalBill.toFixed(2).length}${totalBill.toFixed(2)}5802NP5915LaxmiP_Jabegu6008BHAKTAPUR62110107INV10246304`;
-    $("#tenant_qr").attr("src", `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(updatedQRData)}`);
+    $("#tenant_qr").attr(
+      "src",
+      `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(updatedQRData)}`,
+    );
 
     alert(`सफलतापूर्वक बिल गणना गरियो! नयाँ रकम: रू ${totalBill}`);
   },
 
   updateLedgerState: function (state) {
-    $("#admin_badge, #tenant_status_badge").text(state).attr("class", `badge status-${state.toLowerCase()}`);
+    $("#admin_badge, #tenant_status_badge")
+      .text(state)
+      .attr("class", `badge status-${state.toLowerCase()}`);
     alert(`भाडा लेजर स्थिति अपडेट भयो: ${state}`);
   },
 
   triggerLogout: function () {
     window.location.href = "index.html";
-  }
+  },
 };
