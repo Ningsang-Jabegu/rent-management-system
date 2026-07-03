@@ -124,26 +124,28 @@ const PortalDashboard = {
     $(".nav-item").on("click", function (e) {
       e.preventDefault();
 
-      // पुराना एक्टिभ क्लास हटाउने र यसमा थप्ने
+      // १. साइडबारको एक्टिभ क्लास व्यवस्थापन
       $(".nav-item").removeClass("active");
       $(this).addClass("active");
 
+      // २. क्लिक गरिएको ट्याबको टार्गेट नाम लिने
       let target = $(this).attr("data-target");
 
-      // यदि ओभरभ्यु ट्याब क्लिक गरेमा रोल अनुसारको मुख्य वर्कस्पेस छनौट गर्ने
+      // ३. यदि 'Overview' थिचेको हो भने युजर रोल अनुसार सहि वर्कस्पेस छान्ने
       if (target === "overview_workspace") {
         target = (self.currentRole === "owner") ? "owner_workspace" : "rentee_workspace";
       }
 
-      // सबै वर्कस्पेस सेक्सनहरू एकमुष्ट लुकाउने
-      $(
-        "#owner_workspace, #rentee_workspace, #tenants_workspace, #payments_workspace, #lease_workspace, #messages_workspace, #maintenance_workspace"
-      ).addClass("hide");
+      // 🔥 मुख्य फिक्स: पहिले .workspace-section क्लास भएका सबै डिभहरूलाई सुरक्षित रूपमा लुकाउने
+      $(".workspace-section").addClass("hide");
 
-      // चाहिएको एउटा सेक्सन मात्र देखाउने
+      // ४. अब चाहिएको टार्गेट विन्डोलाई मात्र अन-हाइड (Show) गर्ने
       $("#" + target).removeClass("hide");
 
-      if (typeof lucide !== "undefined") lucide.createIcons();
+      // ५. आइकनहरू ताजा गराउने (Lucide Icons Render)
+      if (typeof lucide !== "undefined") {
+        lucide.createIcons();
+      }
     });
   },
 

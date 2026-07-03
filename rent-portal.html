@@ -137,32 +137,42 @@
         <nav class="sidebar-nav-links">
           <a href="#" class="nav-item active" data-target="overview_workspace">
             <i data-lucide="layout-dashboard"></i>
-            <span data-i18n="nav_overview">Overview</span>
+            <span>Overview Dashboard</span>
+          </a>
+
+          <a href="#" class="nav-item" data-target="floors_workspace">
+            <i data-lucide="layers"></i>
+            <span>तल्ला र कोठाहरू (Floors & Rooms)</span>
           </a>
 
           <a href="#" class="nav-item" data-target="tenants_workspace">
             <i data-lucide="users"></i>
-            <span data-i18n="nav_tenants">Tenants</span>
+            <span>डेरावाला व्यवस्थापन (Tenants Profile)</span>
+          </a>
+
+          <a href="#" class="nav-item" data-target="billing_workspace">
+            <i data-lucide="calculator"></i>
+            <span>भाडा र बिजुली बिलिङ (Billing)</span>
           </a>
 
           <a href="#" class="nav-item" data-target="payments_workspace">
             <i data-lucide="wallet"></i>
-            <span data-i18n="nav_payments">Payments</span>
-          </a>
-
-          <a href="#" class="nav-item" data-target="lease_workspace">
-            <i data-lucide="file-text"></i>
-            <span data-i18n="nav_leases">Leases & Agreements</span>
+            <span>भुक्तानी इतिहास (Payment Ledger)</span>
           </a>
 
           <a href="#" class="nav-item" data-target="messages_workspace">
             <i data-lucide="message-square"></i>
-            <span data-i18n="nav_messages">Notice & Messages</span>
+            <span>सूचना तथा सन्देश (Notice Board)</span>
           </a>
 
           <a href="#" class="nav-item" data-target="maintenance_workspace">
             <i data-lucide="wrench"></i>
-            <span data-i18n="nav_maintenance">Maintenance</span>
+            <span>मर्मत सम्भार लग (Requests)</span>
+          </a>
+
+          <a href="#" class="nav-item" data-target="rules_workspace">
+            <i data-lucide="book-open"></i>
+            <span>घरको ब्लग/नियम (House Rules)</span>
           </a>
         </nav>
 
@@ -206,7 +216,7 @@
             </div>
           </div>
 
-          <div id="rentee_workspace" class="hide">
+          <div id="rentee_workspace" class="workspace-section  hide">
             <div class="modern-metrics-row">
               <div class="metric-glass-card border-alert">
                 <div class="card-icon-wrap bg-alert-soft">
@@ -318,32 +328,99 @@
             </div>
           </div>
 
-          <div id="owner_workspace" class="hide">
-            <div class="modern-metrics-row">
+          <div id="owner_workspace" class="workspace-section hide">
+            <div
+              class="modern-metrics-row"
+              style="
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 15px;
+                margin-bottom: 20px;
+              "
+            >
               <div class="metric-glass-card">
                 <div class="card-icon-wrap bg-primary-soft">
-                  <i data-lucide="trending-up" class="text-primary"></i>
+                  <i data-lucide="home" class="text-primary"></i>
                 </div>
                 <div class="card-data">
-                  <span class="card-label">अनुमानित मासिक आम्दानी</span>
-                  <h3 class="card-main-number">रू ४५,०००.००</h3>
-                  <span class="card-meta-desc"
-                    >३ वटा फ्ल्याट एकाइहरू संकलन योग्य</span
-                  >
+                  <span class="card-label">कुल फ्ल्याट/कोठाहरू</span>
+                  <h3 class="card-main-number">१२ कोठाहरू</h3>
+                  <span class="card-meta-desc">Total Flats/Rooms</span>
                 </div>
               </div>
+
+              <div class="metric-glass-card">
+                <div class="card-icon-wrap bg-success-soft">
+                  <i data-lucide="check-square" class="text-success"></i>
+                </div>
+                <div class="card-data">
+                  <span class="card-label">बहालमा रहेका कोठाहरू</span>
+                  <h3 class="card-main-number">९ बहालमा</h3>
+                  <span class="card-meta-desc">Occupied Rooms</span>
+                </div>
+              </div>
+
+              <div class="metric-glass-card">
+                <div class="card-icon-wrap bg-alert-soft">
+                  <i data-lucide="log-in" class="text-alert"></i>
+                </div>
+                <div class="card-data">
+                  <span class="card-label">खाली कोठाहरू</span>
+                  <h3 class="card-main-number">३ खाली</h3>
+                  <span class="card-meta-desc">Vacant Rooms</span>
+                </div>
+              </div>
+
+              <div class="metric-glass-card">
+                <div class="card-icon-wrap bg-primary-soft">
+                  <i data-lucide="users" class="text-primary"></i>
+                </div>
+                <div class="card-data">
+                  <span class="card-label">कुल डेरावालाहरू</span>
+                  <h3 class="card-main-number" id="owner_total_tenants">
+                    ३ जना
+                  </h3>
+                  <span class="card-meta-desc">Total Tenants</span>
+                </div>
+              </div>
+
+              <div class="metric-glass-card">
+                <div class="card-icon-wrap bg-primary-soft">
+                  <i data-lucide="file-text" class="text-primary"></i>
+                </div>
+                <div class="card-data">
+                  <span class="card-label">चालू महिनाको कुल भाडा</span>
+                  <h3 class="card-main-number">रू ४८,५००.००</h3>
+                  <span class="card-meta-desc">Current Month Invoice</span>
+                </div>
+              </div>
+
               <div class="metric-glass-card">
                 <div class="card-icon-wrap bg-success-soft">
                   <i data-lucide="check-circle-2" class="text-success"></i>
                 </div>
                 <div class="card-data">
-                  <span class="card-label">प्राप्त भुक्तानी लेजर</span>
+                  <span class="card-label">सङ्कलन भएको भाडा</span>
                   <h3 class="card-main-number" id="owner_collected_display">
                     रू ३०,०००.००
                   </h3>
-                  <span class="card-meta-desc"
-                    >२ वटा फ्ल्याट एकाइहरू फत्ते भएको</span
+                  <span class="card-meta-desc">Total Collected</span>
+                </div>
+              </div>
+
+              <div class="metric-glass-card border-alert">
+                <div class="card-icon-wrap bg-alert-soft">
+                  <i data-lucide="credit-card" class="text-alert"></i>
+                </div>
+                <div class="card-data">
+                  <span class="card-label">उठ्न बाँकी बक्यौता</span>
+                  <h3
+                    class="card-main-number text-alert"
+                    id="tenant_due_display"
                   >
+                    रू १८,५००.००
+                  </h3>
+                  <span class="card-meta-desc">Total Pending Dues</span>
                 </div>
               </div>
             </div>
@@ -454,317 +531,385 @@
               </div>
             </div>
           </div>
-        </div>
 
-        <div id="tenants_workspace" class="viewport-canvas-padding hide">
-          <div class="canvas-welcome-jumbotron">
-            <div class="jumbotron-text">
-              <h2>डेरावाला विवरण तथा व्यवस्थापन</h2>
-              <p>
-                घरमा बस्ने सम्पूर्ण डेरावालाहरूको सक्रिय विवरण र कोठा स्थिति
-              </p>
-            </div>
-          </div>
-
-          <div class="content-glass-card">
-            <div class="card-header-inline">
-              <h4><i data-lucide="users"></i> हालका सक्रिय डेरावालाहरू</h4>
-              <span class="badge status-paid">कुल डेरावाला: ३</span>
+          <div id="tenants_workspace" class="workspace-section  hide">
+            <div class="canvas-welcome-jumbotron">
+              <div class="jumbotron-text">
+                <h2>डेरावाला विवरण तथा व्यवस्थापन (Tenants Profile)</h2>
+                <p>
+                  घरमा बस्ने सम्पूर्ण डेरावालाहरूको सक्रिय विवरण र व्यवस्थापन
+                  स्थिति
+                </p>
+              </div>
             </div>
 
-            <div class="modern-table-scroll-frame">
-              <table class="modern-dashboard-table">
-                <thead>
-                  <tr>
-                    <th>डेरावालाको विवरण</th>
-                    <th>कोठा / तल्ला</th>
-                    <th>पेशा / सम्बद्धता</th>
-                    <th>सदस्य संख्या</th>
-                    <th>स्थिति</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>
-                      <div class="table-user-meta">
-                        <span class="user-main-name">नारायण श्रेष्ठ</span>
-                        <span class="user-sub-phone">९८५१XXXXXX</span>
-                      </div>
-                    </td>
-                    <td>भुईंतल्ला (Room 101)</td>
-                    <td>व्यवसाय (किराना पसल)</td>
-                    <td>४ जना</td>
-                    <td><span class="badge status-paid">सक्रिय</span></td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <div class="table-user-meta">
-                        <span class="user-main-name">सरिता राई</span>
-                        <span class="user-sub-phone">९८४१XXXXXX</span>
-                      </div>
-                    </td>
-                    <td>पहिलो तल्ला (Room 202)</td>
-                    <td>बैंकिङ क्षेत्र</td>
-                    <td>२ जना</td>
-                    <td><span class="badge status-paid">सक्रिय</span></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <div id="payments_workspace" class="viewport-canvas-padding hide">
-          <div class="canvas-welcome-jumbotron">
-            <div class="jumbotron-text">
-              <h2>भाडा भुक्तानी लेजर तथा इतिहास</h2>
-              <p>मासिक भाडा, विजुली, र पानीको वित्तीय कारोबारको सङ्ग्रह</p>
-            </div>
-          </div>
-
-          <div class="content-glass-card">
-            <div class="card-header-inline">
-              <h4><i data-lucide="history"></i> भुक्तानी कारोबार इतिहास</h4>
-            </div>
-
-            <div class="modern-table-scroll-frame">
-              <table class="modern-dashboard-table">
-                <thead>
-                  <tr>
-                    <th>मिति (महिना)</th>
-                    <th>डेरावाला</th>
-                    <th>विवरण (भाडा + युटिलिटी)</th>
-                    <th>कुल रकम</th>
-                    <th>माध्यम</th>
-                    <th>स्थिति</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>२०८३ जेठ</td>
-                    <td>नारायण श्रेष्ठ</td>
-                    <td>घरभाडा (१५,०००) + विजुली (५४०)</td>
-                    <td><strong>रू १५,५४०</strong></td>
-                    <td>Fonepay QR</td>
-                    <td><span class="badge status-paid">सफल</span></td>
-                  </tr>
-                  <tr>
-                    <td>२०८३ वैशाख</td>
-                    <td>सरिता राई</td>
-                    <td>घरभाडा (१८,०००) + विजुली (३20)</td>
-                    <td><strong>रू १८,३२०</strong></td>
-                    <td>नगद (Cash)</td>
-                    <td><span class="badge status-paid">सफल</span></td>
-                  </tr>
-                  <tr>
-                    <td>२०८३ वैशाख</td>
-                    <td>नारायण श्रेष्ठ</td>
-                    <td>घरभाडा (१५,०००) + विजुली (४१०)</td>
-                    <td><strong>रू १५,४१०</strong></td>
-                    <td>Fonepay QR</td>
-                    <td><span class="badge status-hold">पेन्डिङ</span></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <div id="lease_workspace" class="viewport-canvas-padding hide">
-          <div class="canvas-welcome-jumbotron">
-            <div class="jumbotron-text">
-              <h2>घरबहाल सम्झौता तथा सरकारी कागजात</h2>
-              <p>कानुनी सम्झौता पत्र, नागरिकता प्रतिलिपि र कोठा बहाल नियमहरू</p>
-            </div>
-          </div>
-
-          <div class="dashboard-split-layout">
             <div class="content-glass-card">
               <div class="card-header-inline">
-                <h4><i data-lucide="file-text"></i> सक्रिय सम्झौता पत्रहरू</h4>
+                <h4><i data-lucide="users"></i> हालका सक्रिय डेरावालाहरू</h4>
+                <span class="badge status-paid">कुल डेरावाला: ३</span>
               </div>
+
               <div class="modern-table-scroll-frame">
                 <table class="modern-dashboard-table">
                   <thead>
                     <tr>
-                      <th>डेरावाला</th>
-                      <th>अवधि (बाँकी दिन)</th>
-                      <th>कागजात पत्र</th>
-                      <th>कार्य</th>
+                      <th>डेरावालाको विवरण</th>
+                      <th>कोठा / तल्ला</th>
+                      <th>पेशा / सम्बद्धता</th>
+                      <th>सदस्य संख्या</th>
+                      <th>स्थिति</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td>नारायण श्रेष्ठ</td>
-                      <td>१ वर्ष (१४2 दिन बाँकी)</td>
-                      <td>सम्झौता पत्र.pdf</td>
                       <td>
-                        <button class="table-mini-action-btn accept-trigger">
-                          <i
-                            data-lucide="download"
-                            style="width: 12px; height: 12px"
-                          ></i>
-                          View
-                        </button>
+                        <div class="table-user-meta">
+                          <span class="user-main-name">नारायण श्रेष्ठ</span>
+                          <span class="user-sub-phone">९८५१XXXXXX</span>
+                        </div>
                       </td>
+                      <td>भुईंतल्ला (Room 101)</td>
+                      <td>व्यवसाय (किराना पसल)</td>
+                      <td>४ जना</td>
+                      <td><span class="badge status-paid">सक्रिय</span></td>
                     </tr>
                     <tr>
-                      <td>सरिता राई</td>
-                      <td>२ वर्ष (३१० दिन बाँकी)</td>
-                      <td>सम्झौता पत्र_राई.pdf</td>
                       <td>
-                        <button class="table-mini-action-btn accept-trigger">
-                          <i
-                            data-lucide="download"
-                            style="width: 12px; height: 12px"
-                          ></i>
-                          View
-                        </button>
+                        <div class="table-user-meta">
+                          <span class="user-main-name">सरिता राई</span>
+                          <span class="user-sub-phone">९८४१XXXXXX</span>
+                        </div>
                       </td>
+                      <td>पहिलो तल्ला (Room 202)</td>
+                      <td>बैंकिङ क्षेत्र</td>
+                      <td>२ जना</td>
+                      <td><span class="badge status-paid">सक्रिय</span></td>
                     </tr>
                   </tbody>
                 </table>
               </div>
             </div>
+          </div>
+
+          <div id="payments_workspace" class="workspace-section  hide">
+            <div class="canvas-welcome-jumbotron">
+              <div class="jumbotron-text">
+                <h2>भाडा भुक्तानी लेजर तथा इतिहास</h2>
+                <p>मासिक भाडा, विजुली, र पानीको वित्तीय कारोबारको सङ्ग्रह</p>
+              </div>
+            </div>
 
             <div class="content-glass-card">
               <div class="card-header-inline">
-                <h4>
-                  <i data-lucide="upload-cloud"></i> नयाँ कागजात सुरक्षित
-                  गर्नुहोस्
-                </h4>
+                <h4><i data-lucide="history"></i> भुक्तानी कारोबार इतिहास</h4>
               </div>
-              <div class="receipt-action-group">
-                <div class="modern-input-field-block">
-                  <label class="field-label"
-                    >डेरावालाको नाम छनौट गर्नुहोस्</label
-                  >
-                  <input
-                    type="text"
-                    class="modern-dashboard-input"
-                    placeholder="उदाहरण: नारायण श्रेष्ठ"
-                  />
-                </div>
-                <div class="modern-input-field-block">
-                  <label class="field-label">कागजातको प्रकार</label>
-                  <input
-                    type="text"
-                    class="modern-dashboard-input"
-                    placeholder="उदाहरण: नागरिकता / सम्झौता पत्र"
-                  />
-                </div>
-                <label class="modern-file-trigger-btn" style="cursor: pointer">
-                  <i data-lucide="file-plus"></i> फाइल चयन गर्नुहोस् (PDF/Image)
-                  <input type="file" />
-                </label>
-                <button
-                  class="modern-primary-action-btn"
-                  style="margin-top: 10px"
-                >
-                  <i data-lucide="save"></i> कागजात सेभ गर्नुहोस्
-                </button>
+
+              <div class="modern-table-scroll-frame">
+                <table class="modern-dashboard-table">
+                  <thead>
+                    <tr>
+                      <th>मिति (महिना)</th>
+                      <th>डेरावाला</th>
+                      <th>विवरण (भाडा + युटिलिटी)</th>
+                      <th>कुल रकम</th>
+                      <th>माध्यम</th>
+                      <th>स्थिति</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>२०८३ जेठ</td>
+                      <td>नारायण श्रेष्ठ</td>
+                      <td>घरभाडा (१५,०००) + विजुली (५४०)</td>
+                      <td><strong>रू १५,५४०</strong></td>
+                      <td>Fonepay QR</td>
+                      <td><span class="badge status-paid">सफल</span></td>
+                    </tr>
+                    <tr>
+                      <td>२०८३ वैशाख</td>
+                      <td>सरिता राई</td>
+                      <td>घरभाडा (१८,०००) + विजुली (३20)</td>
+                      <td><strong>रू १८,३२०</strong></td>
+                      <td>नगद (Cash)</td>
+                      <td><span class="badge status-paid">सफल</span></td>
+                    </tr>
+                    <tr>
+                      <td>२०८३ वैशाख</td>
+                      <td>नारायण श्रेष्ठ</td>
+                      <td>घरभाडा (१५,०००) + विजुली (४१०)</td>
+                      <td><strong>रू १५,४१०</strong></td>
+                      <td>Fonepay QR</td>
+                      <td><span class="badge status-hold">पेन्डिङ</span></td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
-        </div>
 
-        <div id="messages_workspace" class="viewport-canvas-padding hide">
-          <div class="canvas-welcome-jumbotron">
-            <div class="jumbotron-text">
-              <h2>घरधनीको सूचना बोर्ड (Notice Board)</h2>
-              <p>सबै डेरावालाहरूका लागि जारी गरिएका पछिल्ला सामूहिक सूचनाहरू</p>
-            </div>
-          </div>
-
-          <div class="dashboard-split-layout">
-            <div class="content-glass-card large-span">
-              <div class="card-header-inline">
-                <h4><i data-lucide="message-square"></i> सक्रिय सूचनाहरू</h4>
-              </div>
-              <div class="live-notices" id="notices_container">
-                <p class="panel-inner-text text-center">
-                  अहिलेसम्म कुनै सूचना जारी गरिएको छैन।
+          <div id="lease_workspace" class="workspace-section  hide">
+            <div class="canvas-welcome-jumbotron">
+              <div class="jumbotron-text">
+                <h2>घरबहाल सम्झौता तथा सरकारी कागजात</h2>
+                <p>
+                  कानुनी सम्झौता पत्र, नागरिकता प्रतिलिपि र कोठा बहाल नियमहरू
                 </p>
               </div>
             </div>
 
-            <div class="content-glass-card small-span owner-only-action hide">
-              <div class="card-header-inline">
-                <h4><i data-lucide="plus-circle"></i> नयाँ सूचना थप्नुहोस्</h4>
+            <div class="dashboard-split-layout">
+              <div class="content-glass-card">
+                <div class="card-header-inline">
+                  <h4>
+                    <i data-lucide="file-text"></i> सक्रिय सम्झौता पत्रहरू
+                  </h4>
+                </div>
+                <div class="modern-table-scroll-frame">
+                  <table class="modern-dashboard-table">
+                    <thead>
+                      <tr>
+                        <th>डेरावाला</th>
+                        <th>अवधि (बाँकी दिन)</th>
+                        <th>कागजात पत्र</th>
+                        <th>कार्य</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>नारायण श्रेष्ठ</td>
+                        <td>१ वर्ष (१४2 दिन बाँकी)</td>
+                        <td>सम्झौता पत्र.pdf</td>
+                        <td>
+                          <button class="table-mini-action-btn accept-trigger">
+                            <i
+                              data-lucide="download"
+                              style="width: 12px; height: 12px"
+                            ></i>
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>सरिता राई</td>
+                        <td>२ वर्ष (३१० दिन बाँकी)</td>
+                        <td>सम्झौता पत्र_राई.pdf</td>
+                        <td>
+                          <button class="table-mini-action-btn accept-trigger">
+                            <i
+                              data-lucide="download"
+                              style="width: 12px; height: 12px"
+                            ></i>
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
-              <div class="modern-input-field-block">
-                <label class="field-label">सूचनाको विवरण</label>
-                <textarea
-                  id="notice_text"
-                  class="modern-dashboard-input"
-                  style="height: 100px; padding: 10px"
-                  placeholder="उदा: भोलि बिहान ६ बजे पानी आउनेछ।"
-                ></textarea>
+
+              <div class="content-glass-card">
+                <div class="card-header-inline">
+                  <h4>
+                    <i data-lucide="upload-cloud"></i> नयाँ कागजात सुरक्षित
+                    गर्नुहोस्
+                  </h4>
+                </div>
+                <div class="receipt-action-group">
+                  <div class="modern-input-field-block">
+                    <label class="field-label"
+                      >डेरावालाको नाम छनौट गर्नुहोस्</label
+                    >
+                    <input
+                      type="text"
+                      class="modern-dashboard-input"
+                      placeholder="उदाहरण: नारायण श्रेष्ठ"
+                    />
+                  </div>
+                  <div class="modern-input-field-block">
+                    <label class="field-label">कागजातको प्रकार</label>
+                    <input
+                      type="text"
+                      class="modern-dashboard-input"
+                      placeholder="उदाहरण: नागरिकता / सम्झौता पत्र"
+                    />
+                  </div>
+                  <label
+                    class="modern-file-trigger-btn"
+                    style="cursor: pointer"
+                  >
+                    <i data-lucide="file-plus"></i> फाइल चयन गर्नुहोस्
+                    (PDF/Image)
+                    <input type="file" />
+                  </label>
+                  <button
+                    class="modern-primary-action-btn"
+                    style="margin-top: 10px"
+                  >
+                    <i data-lucide="save"></i> कागजात सेभ गर्नुहोस्
+                  </button>
+                </div>
               </div>
-              <button
-                class="modern-primary-action-btn"
-                onclick="alert('सूचना गिटहब ब्याकअपमा सुरक्षित हुँदैछ...')"
-              >
-                <i data-lucide="send"></i> सूचना जारी गर्नुहोस्
-              </button>
             </div>
           </div>
-        </div>
 
-        <div id="maintenance_workspace" class="viewport-canvas-padding hide">
-          <div class="canvas-welcome-jumbotron">
-            <div class="jumbotron-text">
-              <h2>मर्मत सम्भार अनुरोध (Maintenance Logs)</h2>
-              <p>
-                घरका भौतिक समस्या, ढल, पानी वा बत्ती बिग्रेको रिपोर्ट गर्ने ठाउँ
+          <div id="messages_workspace" class="workspace-section  hide">
+            <div class="canvas-welcome-jumbotron">
+              <div class="jumbotron-text">
+                <h2>घरधनीको सूचना बोर्ड (Notice Board)</h2>
+                <p>
+                  सबै डेरावालाहरूका लागि जारी गरिएका पछिल्ला सामूहिक सूचनाहरू
+                </p>
+              </div>
+            </div>
+
+            <div class="dashboard-split-layout">
+              <div class="content-glass-card large-span">
+                <div class="card-header-inline">
+                  <h4><i data-lucide="message-square"></i> सक्रिय सूचनाहरू</h4>
+                </div>
+                <div class="live-notices" id="notices_container">
+                  <p class="panel-inner-text text-center">
+                    अहिलेसम्म कुनै सूचना जारी गरिएको छैन।
+                  </p>
+                </div>
+              </div>
+
+              <div class="content-glass-card small-span owner-only-action hide">
+                <div class="card-header-inline">
+                  <h4>
+                    <i data-lucide="plus-circle"></i> नयाँ सूचना थप्नुहोस्
+                  </h4>
+                </div>
+                <div class="modern-input-field-block">
+                  <label class="field-label">सूचनाको विवरण</label>
+                  <textarea
+                    id="notice_text"
+                    class="modern-dashboard-input"
+                    style="height: 100px; padding: 10px"
+                    placeholder="उदा: भोलि बिहान ६ बजे पानी आउनेछ।"
+                  ></textarea>
+                </div>
+                <button
+                  class="modern-primary-action-btn"
+                  onclick="alert('सूचना गिटहब ब्याकअपमा सुरक्षित हुँदैछ...')"
+                >
+                  <i data-lucide="send"></i> सूचना जारी गर्नुहोस्
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div id="maintenance_workspace" class="workspace-section  hide">
+            <div class="canvas-welcome-jumbotron">
+              <div class="jumbotron-text">
+                <h2>मर्मत सम्भार अनुरोध (Maintenance Logs)</h2>
+                <p>
+                  घरका भौतिक समस्या, ढल, पानी वा बत्ती बिग्रेको रिपोर्ट गर्ने
+                  ठाउँ
+                </p>
+              </div>
+            </div>
+
+            <div class="content-glass-card">
+              <div class="card-header-inline">
+                <h4><i data-lucide="wrench"></i> हालका गुनासा तथा समस्याहरू</h4>
+              </div>
+
+              <div
+                class="tenant-only-action hide"
+                style="margin-bottom: 20px; display: flex; gap: 10px"
+              >
+                <input
+                  type="text"
+                  id="maintenance_issue"
+                  class="modern-dashboard-input"
+                  style="flex: 1"
+                  placeholder="के समस्या आयो? (उदा: पहिलो तल्लाको धारा चुहियो)"
+                />
+                <button
+                  class="modern-primary-action-btn"
+                  style="width: auto; margin-top: 0; padding:0 20px;"
+                  onclick="alert('समस्या घरधनी कहाँ पठाइयो।')"
+                >
+                  <i data-lucide="alert-triangle"></i> रिपोर्ट गर्ने
+                </button>
+              </div>
+
+              <div class="modern-table-scroll-frame">
+                <table class="modern-dashboard-table">
+                  <thead>
+                    <tr>
+                      <th>मिति</th>
+                      <th>पठाउने व्यक्ति</th>
+                      <th>समस्याको विवरण</th>
+                      <th>स्थिति</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>२०८३/०३/१०</td>
+                      <td>नारायण श्रेष्ठ</td>
+                      <td>मिटर बक्सको फ्युज बलेको</td>
+                      <td><span class="badge status-paid">सचिइयो</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div id="floors_workspace" class="workspace-section  hide">
+            <div class="canvas-welcome-jumbotron">
+              <div class="jumbotron-text">
+                <h2>तल्ला र कोठाहरू (Floors & Rooms Setup)</h2>
+                <p>
+                  घरको तल्ला (Ground, First, Second) र कोठाहरू थप्ने वा
+                  परिमार्जन गर्ने क्षेत्र
+                </p>
+              </div>
+            </div>
+            <div class="content-glass-card">
+              <div class="card-header-inline">
+                <h4><i data-lucide="layers"></i> घरको भौतिक संचरना आउटलाइन</h4>
+              </div>
+              <p class="panel-inner-text">
+                भुईंतल्ला (३ कोठाहरू), पहिलो तल्ला (४ कोठाहरू), दोस्रो तल्ला (४
+                कोठाहरू), टप तल्ला (१ फ्ल्याट)
               </p>
             </div>
           </div>
 
-          <div class="content-glass-card">
-            <div class="card-header-inline">
-              <h4><i data-lucide="wrench"></i> हालका गुनासा तथा समस्याहरू</h4>
+          <div id="billing_workspace" class="workspace-section  hide">
+            <div class="canvas-welcome-jumbotron">
+              <div class="jumbotron-text">
+                <h2>भाडा र बिजुली बिलिङ (Invoices & Billing)</h2>
+                <p>
+                  मासिक रूपमा बिजुलीको युनिट र कोठा भाडा हिसाब गरी नयाँ डिजिटल
+                  बिल काट्ने फारम
+                </p>
+              </div>
             </div>
+          </div>
 
-            <div
-              class="tenant-only-action hide"
-              style="margin-bottom: 20px; display: flex; gap: 10px"
-            >
-              <input
-                type="text"
-                id="maintenance_issue"
-                class="modern-dashboard-input"
-                style="flex: 1"
-                placeholder="के समस्या आयो? (उदा: पहिलो तल्लाको धारा चुहियो)"
-              />
-              <button
-                class="modern-primary-action-btn"
-                style="width: auto; margin-top: 0"
-                onclick="alert('समस्या घरधनी कहाँ पठाइयो।')"
-              >
-                <i data-lucide="alert-triangle"></i> रिपोर्ट गर्ने
-              </button>
+          <div id="rules_workspace" class="workspace-section  hide">
+            <div class="canvas-welcome-jumbotron">
+              <div class="jumbotron-text">
+                <h2>घरको ब्लग/नियम (House Rules & Blogs)</h2>
+                <p>
+                  जबेगु निवासमा बस्दा पालना गर्नुपर्ने अनुशासन, सर्त तथा डिजिटल
+                  नियम पुस्तिका
+                </p>
+              </div>
             </div>
-
-            <div class="modern-table-scroll-frame">
-              <table class="modern-dashboard-table">
-                <thead>
-                  <tr>
-                    <th>मिति</th>
-                    <th>पठाउने व्यक्ति</th>
-                    <th>समस्याको विवरण</th>
-                    <th>स्थिति</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>२०८३/०३/१०</td>
-                    <td>नारायण श्रेष्ठ</td>
-                    <td>मिटर बक्सको फ्युज बलेको</td>
-                    <td><span class="badge status-paid">सचिइयो</span></td>
-                  </tr>
-                </tbody>
-              </table>
+            <div class="content-glass-card">
+              <div class="card-header-inline">
+                <h4><i data-lucide="shield"></i> मुख्य आचारसंहिता</h4>
+              </div>
+              <p class="panel-inner-text">
+                १. राती १० बजे मुख्य गेट बन्द हुनेछ। २. फोहोर व्यवस्थापन
+                प्रत्येक हप्ताको विहान तोकिएको गाडीमा गर्नुपर्नेछ।
+              </p>
             </div>
           </div>
         </div>
