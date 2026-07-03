@@ -667,6 +667,107 @@
             </div>
           </div>
         </div>
+
+        <div id="messages_workspace" class="viewport-canvas-padding hide">
+          <div class="canvas-welcome-jumbotron">
+            <div class="jumbotron-text">
+              <h2>घरधनीको सूचना बोर्ड (Notice Board)</h2>
+              <p>सबै डेरावालाहरूका लागि जारी गरिएका पछिल्ला सामूहिक सूचनाहरू</p>
+            </div>
+          </div>
+
+          <div class="dashboard-split-layout">
+            <div class="content-glass-card large-span">
+              <div class="card-header-inline">
+                <h4><i data-lucide="message-square"></i> सक्रिय सूचनाहरू</h4>
+              </div>
+              <div class="live-notices" id="notices_container">
+                <p class="panel-inner-text text-center">
+                  अहिलेसम्म कुनै सूचना जारी गरिएको छैन।
+                </p>
+              </div>
+            </div>
+
+            <div class="content-glass-card small-span owner-only-action hide">
+              <div class="card-header-inline">
+                <h4><i data-lucide="plus-circle"></i> नयाँ सूचना थप्नुहोस्</h4>
+              </div>
+              <div class="modern-input-field-block">
+                <label class="field-label">सूचनाको विवरण</label>
+                <textarea
+                  id="notice_text"
+                  class="modern-dashboard-input"
+                  style="height: 100px; padding: 10px"
+                  placeholder="उदा: भोलि बिहान ६ बजे पानी आउनेछ।"
+                ></textarea>
+              </div>
+              <button
+                class="modern-primary-action-btn"
+                onclick="alert('सूचना गिटहब ब्याकअपमा सुरक्षित हुँदैछ...')"
+              >
+                <i data-lucide="send"></i> सूचना जारी गर्नुहोस्
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="maintenance_workspace" class="viewport-canvas-padding hide">
+          <div class="canvas-welcome-jumbotron">
+            <div class="jumbotron-text">
+              <h2>मर्मत सम्भार अनुरोध (Maintenance Logs)</h2>
+              <p>
+                घरका भौतिक समस्या, ढल, पानी वा बत्ती बिग्रेको रिपोर्ट गर्ने ठाउँ
+              </p>
+            </div>
+          </div>
+
+          <div class="content-glass-card">
+            <div class="card-header-inline">
+              <h4><i data-lucide="wrench"></i> हालका गुनासा तथा समस्याहरू</h4>
+            </div>
+
+            <div
+              class="tenant-only-action hide"
+              style="margin-bottom: 20px; display: flex; gap: 10px"
+            >
+              <input
+                type="text"
+                id="maintenance_issue"
+                class="modern-dashboard-input"
+                style="flex: 1"
+                placeholder="के समस्या आयो? (उदा: पहिलो तल्लाको धारा चुहियो)"
+              />
+              <button
+                class="modern-primary-action-btn"
+                style="width: auto; margin-top: 0"
+                onclick="alert('समस्या घरधनी कहाँ पठाइयो।')"
+              >
+                <i data-lucide="alert-triangle"></i> रिपोर्ट गर्ने
+              </button>
+            </div>
+
+            <div class="modern-table-scroll-frame">
+              <table class="modern-dashboard-table">
+                <thead>
+                  <tr>
+                    <th>मिति</th>
+                    <th>पठाउने व्यक्ति</th>
+                    <th>समस्याको विवरण</th>
+                    <th>स्थिति</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>२०८३/०३/१०</td>
+                    <td>नारायण श्रेष्ठ</td>
+                    <td>मिटर बक्सको फ्युज बलेको</td>
+                    <td><span class="badge status-paid">सचिइयो</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 

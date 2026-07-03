@@ -1,32 +1,39 @@
-const IndexObj = {
+// js/index.js
+
+$(document).ready(function () {
+  // यदि हामी लगइन पेज (index.html) मा छौँ भने लगइन फर्म एक्टिभ गराउने
+  if ($("#login_form").length > 0) {
+    LoginSystem.init();
+  }
+  
+  // यदि हामी ड्यासबोर्ड पेज (rent-portal.html) मा छौँ भने ड्यासबोर्ड एक्टिभ गराउने
+  if ($(".app-dashboard-container").length > 0) {
+    PortalDashboard.init();
+  }
+});
+
+// ==========================================
+// १. लगइन प्रणाली (Login Panel Logic)
+// ==========================================
+const LoginSystem = {
   init: function () {
     const self = this;
     setTimeout(function () {
       $("#body_loading").addClass("hide");
-    }, 800);
+    }, 600);
 
-    // १. युजरनेममा 'Enter' थिच्दा फोकस सिधै पासवर्डमा लैजाने
+    // युजरनेममा 'Enter' थिच्दा फोकस पासवर्डमा लैजाने
     $("#account_input").on("keypress", function (e) {
-      if (e.which === 13) { 
-        e.preventDefault(); // फर्म सबमिट हुनबाट रोक्ने
-        $("#account_password").focus(); // पासवर्ड बक्समा फोकस सार्ने
+      if (e.which === 13) {
+        e.preventDefault();
+        $("#account_password").focus();
       }
     });
 
-    // २. नयाँ HTML को फर्म सबमिसन इभेन्ट क्याप्चर गर्ने (Enter र Button Click दुवै यसैले काम गर्छ)
-    // यसले पेज रिफ्रेस (Reload) हुन दिँदैन
+    // फर्म सबमिट व्यवस्थापन
     $("#login_form").on("submit", function (e) {
-      e.preventDefault(); // AJAX कल नसकिँदासम्म पेज रोक्ने (पेज रिफ्रेस हुन नदिने)
+      e.preventDefault();
       self.authenticateUser();
-    });
-
-    // ३. पुराना केही कम्प्युटर वा ब्राउजरमा ब्याकअपको रूपमा क्लिक पनि चलिरहोस् भन्नका लागि:
-    $("#login_btn").on("click", function (e) {
-      // यदि यो बटन <button type="submit"> हो भने यसले स्वतः माथिको फर्म ट्रिगर गर्छ
-      // तर यदि फर्म बाहिर छ भने यसले सिधै फङ्गसन कल गर्छ
-      if ($("#login_form").length === 0) {
-        self.authenticateUser();
-      }
     });
   },
 
@@ -35,123 +42,108 @@ const IndexObj = {
     const username = $("#account_input").val().trim().toLowerCase();
     const passwordPlain = $("#account_password").val();
 
-    // युजरनेम र पासवर्ड खाली भए नभएको जाँच गर्ने
     if (!username || !passwordPlain) {
       $("#login_msg").text("कृपया प्रयोगकर्ता नाम र पासवर्ड प्रविष्ट गर्नुहोस्।");
       return;
     }
 
-    // लगइन बटनलाई डिसेबल गर्ने र एनिमेसन देखाउने
     $("#login_btn").prop("disabled", true).find(".btn-text").text("प्रमाणिकरण हुँदैछ...");
 
-    // Vercel Serverless API सँग सञ्चार गर्ने
     $.ajax({
       url: "/api/login",
       type: "POST",
       contentType: "application/json",
-      data: JSON.stringify({
-        username: username,
-        password: passwordPlain
-      }),
+      data: JSON.stringify({ username: username, password: passwordPlain }),
       success: function (response) {
         if (response.success) {
-          // सफलता: प्राप्त रोलको आधारमा ड्यासबोर्डमा पठाउने
           window.location.href = `rent-portal.html?role=${response.role}`;
         }
       },
-      error: function (xhr, textStatus, errorThrown) {
-        // यदि AJAX कल बीचमै काटिएको (Cancelled/Aborted) हो भने त्रुटि नदेखाउने
-        if (textStatus === "abort") return;
-
-        // विफलता: सर्भरले पठाएको त्रुटि सन्देश स्क्रिनमा देखाउने
+      error: function (xhr) {
         const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : "API सँग जडान हुन सकेन।";
         $("#login_msg").text(errorMsg);
-        
-        // बटनलाई पुनः सक्रिय बनाउने
         $("#login_btn").prop("disabled", false).find(".btn-text").text("लगइन गर्नुहोस्");
       }
     });
-  },
+  }
 };
 
+// ==========================================
+// २. मुख्य ड्यासबोर्ड प्रणाली (Portal Dashboard Logic)
+// ==========================================
 const PortalDashboard = {
   analyticsChartInstance: null,
-  currentRole: null, 
+  currentRole: null,
 
   init: function () {
-    const self = this;
-
     setTimeout(function () {
       $("#body_loading").addClass("hide");
     }, 600);
 
-    if (typeof lucide !== "undefined") {
-      lucide.createIcons();
-    }
-
+    // URL बाट गुडिरहेको रोल (owner वा rentee) लिने
     const params = new URLSearchParams(window.location.search);
     this.currentRole = params.get("role");
 
-    this.renderRoleWorkspace(this.currentRole);
+    // ड्यासबोर्डमा रोल अनुसारको आवरण तयार गर्ने
+    this.renderWorkspace(this.currentRole);
+    
+    // साइडबारका लिंकहरू क्लिक गर्दा सेक्सन टगल गराउने न्याभिगेसन सुचारु गर्ने
     this.initNavigation();
   },
 
-  renderRoleWorkspace: function (role) {
+  renderWorkspace: function (role) {
     if (role === "owner") {
       $("#owner_workspace").removeClass("hide");
-      $("#active_role_badge").text("Owner Account");
-      $("#dynamic_welcome_title").text("नमस्ते, घरधनी बुबा (Devendra)");
+      $("#active_role_badge").text("घरधनी खाता (Owner)");
+      $("#dynamic_welcome_title").text("स्वागतम्, घरधनी बुबा (Devendra)");
+      
+      // घरधनीका लागि मात्र देखिने तत्वहरू सक्रिय गर्ने
+      $(".owner-only-action").removeClass("hide");
+      $(".tenant-only-action").addClass("hide");
+      
       this.initIncomeAnalyticsChart();
     } else if (role === "rentee") {
       $("#rentee_workspace").removeClass("hide");
-      $("#active_role_badge").text("Tenant Account");
-      $("#dynamic_welcome_title").text("नमस्ते, नारायण श्रेष्ठ");
+      $("#active_role_badge").text("डेरावाला खाता (Tenant)");
+      $("#dynamic_welcome_title").text("स्वागतम्, नारायण श्रेष्ठ");
+      
+      // डेरावालाका लागि मात्र देखिने तत्वहरू सक्रिय गर्ने
+      $(".tenant-only-action").removeClass("hide");
+      $(".owner-only-action").addClass("hide");
     } else {
+      // यदि रोल नमिलेमा सिधै लगइन विन्डोमा फिर्ता लैजाने
       window.location.href = "index.html";
     }
+    
+    if (typeof lucide !== "undefined") lucide.createIcons();
   },
 
   initNavigation: function () {
     const self = this;
 
-    $(".nav-item, .mobile-nav-link").on("click", function (e) {
+    $(".nav-item").on("click", function (e) {
       e.preventDefault();
 
+      // पुराना एक्टिभ क्लास हटाउने र यसमा थप्ने
       $(".nav-item").removeClass("active");
       $(this).addClass("active");
 
-      let targetWorkspace = $(this).attr("data-target");
+      let target = $(this).attr("data-target");
 
-      if (targetWorkspace === "overview_workspace") {
-        targetWorkspace =
-          self.currentRole === "owner" ? "owner_workspace" : "rentee_workspace";
+      // यदि ओभरभ्यु ट्याब क्लिक गरेमा रोल अनुसारको मुख्य वर्कस्पेस छनौट गर्ने
+      if (target === "overview_workspace") {
+        target = (self.currentRole === "owner") ? "owner_workspace" : "rentee_workspace";
       }
 
+      // सबै वर्कस्पेस सेक्सनहरू एकमुष्ट लुकाउने
       $(
-        "#owner_workspace, #rentee_workspace, #tenants_workspace, #payments_workspace, #lease_workspace",
+        "#owner_workspace, #rentee_workspace, #tenants_workspace, #payments_workspace, #lease_workspace, #messages_workspace, #maintenance_workspace"
       ).addClass("hide");
 
-      $("#" + targetWorkspace).removeClass("hide");
+      // चाहिएको एउटा सेक्सन मात्र देखाउने
+      $("#" + target).removeClass("hide");
 
-      if (typeof lucide !== "undefined") {
-        lucide.createIcons();
-      }
-
-      if ($(window).width() <= 1024) {
-        $(".app-sidebar").css("transform", "translateX(-100%)");
-      }
-    });
-
-    $(".mobile-top-bar button").on("click", function () {
-      const sidebar = $(".app-sidebar");
-      if (
-        sidebar.css("transform") === "none" ||
-        sidebar.css("transform") === "matrix(1, 0, 0, 1, 0, 0)"
-      ) {
-        sidebar.css("transform", "translateX(-100%)");
-      } else {
-        sidebar.css("transform", "translateX(0)");
-      }
+      if (typeof lucide !== "undefined") lucide.createIcons();
     });
   },
 
@@ -159,139 +151,53 @@ const PortalDashboard = {
     const ctx = document.getElementById("incomeAnalyticsChart");
     if (!ctx) return;
 
-    if (this.analyticsChartInstance) {
-      this.analyticsChartInstance.destroy();
-    }
+    if (this.analyticsChartInstance) this.analyticsChartInstance.destroy();
 
     this.analyticsChartInstance = new Chart(ctx, {
       type: "bar",
       data: {
-        labels: ["बैशाख", "जेठ", "असार", "साउन", "भदौ", "असोज"],
-        datasets: [
-          {
-            label: "मासिक आम्दानी संकलन (रू)",
-            data: [45000, 45000, 48200, 45000, 52100, 45540],
-            backgroundColor: "rgba(215, 176, 109, 0.6)",
-            borderColor: "#d7b06d",
-            borderWidth: 2,
-            borderRadius: 6,
-          },
-        ],
+        labels: ["वैशाख", "जेठ", "असार", "साउन", "भदौ", "असोज"],
+        datasets: [{
+          label: "मासिक आम्दानी संकलन (रू)",
+          data: [45000, 48500, 45000, 52000, 45540, 49000],
+          backgroundColor: "rgba(201, 169, 110, 0.4)",
+          borderColor: "#c9a96e",
+          borderWidth: 1.5,
+          borderRadius: 4
+        }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-        },
-        scales: {
-          y: {
-            grid: { color: "rgba(255, 255, 255, 0.05)" },
-            ticks: { color: "rgba(245, 248, 251, 0.6)" },
-          },
-          x: {
-            grid: { display: false },
-            ticks: { color: "rgba(245, 248, 251, 0.6)" },
-          },
-        },
-      },
+        plugins: { legend: { display: false } }
+      }
     });
   },
 
   calculateNewInvoice: function () {
     const units = parseInt($("#owner_units").val()) || 0;
     const baseRent = 15000;
-    const ratePerUnit = 12; 
-    const computedSum = baseRent + units * ratePerUnit;
+    const ratePerUnit = 12;
+    const totalBill = baseRent + (units * ratePerUnit);
 
-    $("#tenant_due_display").text(`रू ${computedSum.toLocaleString()}.००`);
-    $("#ledger_amount_label").text(`रू ${computedSum.toLocaleString()}`);
-    $("#owner_collected_display").text(
-      `रू ${(30000 + computedSum).toLocaleString()}.००`,
-    );
+    // दुवै ड्यासबोर्डमा रकम परिवर्तन प्रतिबिम्बित गराउने
+    $("#ledger_amount_label").text(`रू ${totalBill.toLocaleString()}`);
+    $("#tenant_due_display").text(`रू ${totalBill.toLocaleString()}.००`);
+    $("#owner_collected_display").text(`रू ${(30000 + totalBill).toLocaleString()}.००`);
 
-    const updatedPayload = `00020101021230300010NEPALPAY0115984100000052040000530352454${computedSum.toFixed(2).length}${computedSum.toFixed(2)}5802NP5915LaxmiP_Jabegu6008BHAKTAPUR62110107INV10246304`;
-    $("#tenant_qr").attr(
-      "src",
-      `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(updatedPayload)}`,
-    );
+    // नयाँ क्युआर कोड जेनेरेट गर्ने
+    const updatedQRData = `00020101021230300010NEPALPAY0115984100000052040000530352454${totalBill.toFixed(2).length}${totalBill.toFixed(2)}5802NP5915LaxmiP_Jabegu6008BHAKTAPUR62110107INV10246304`;
+    $("#tenant_qr").attr("src", `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(updatedQRData)}`);
 
-    alert(
-      `विवरण सफलतापूर्वक अद्यावधिक भयो! नयाँ कुल भाडा महशुल: रू ${computedSum}`,
-    );
+    alert(`सफलतापूर्वक बिल गणना गरियो! नयाँ रकम: रू ${totalBill}`);
   },
 
-  updateLedgerState: function (status) {
-    const badge = $("#admin_badge, #tenant_status_badge");
-    badge.removeClass("status-pending status-paid status-hold");
-    badge.addClass(`status-${status.toLowerCase()}`).text(status);
-    alert(`भाडा लेजर रेकर्ड स्थिति [${status}] मा अद्यावधिक भयो।`);
+  updateLedgerState: function (state) {
+    $("#admin_badge, #tenant_status_badge").text(state).attr("class", `badge status-${state.toLowerCase()}`);
+    alert(`भाडा लेजर स्थिति अपडेट भयो: ${state}`);
   },
 
   triggerLogout: function () {
     window.location.href = "index.html";
-  },
+  }
 };
-
-$(document).ready(function () {
-  if (window.location.pathname.includes("rent-portal.html")) {
-    PortalDashboard.init();
-  } else {
-    if (typeof IndexObj !== "undefined") {
-      IndexObj.init();
-    }
-  }
-});
-
-function loadConfig(data) {
-  if (typeof IndexObj !== "undefined") {
-    IndexObj.init(data);
-  }
-}
-
-function fetchTenantsData() {
-  const REPO_OWNER = "Ningsang-Jabegu";
-  const REPO_NAME = "jabegu-rent-portal-backup";
-  const FILE_PATH = "data/users/tenants.json";
-  const GITHUB_TOKEN = "YOUR_PERSONAL_ACCESS_TOKEN"; // तपाईँको सेक्रेट टोकन
-
-  $.ajax({
-    url: `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,
-    type: "GET",
-    headers: {
-      "Authorization": `token ${GITHUB_TOKEN}`,
-      "Accept": "application/vnd.github.v3+json"
-    },
-    success: function(response) {
-      // GitHub ले फाइलको कन्टेन्ट 'Base64' इन्कोडिङमा फर्काउँछ
-      const decodedData = atob(response.content);
-      const tenantsList = JSON.parse(decodedData);
-      console.log("खोजिएको डेरावाला डेटा:", tenantsList);
-      
-      // यहाँ तपाईँले युजरनेम र पासवर्ड म्याच गराउने लोजिक राख्न सक्नुहुन्छ
-    },
-    error: function(err) {
-      console.error("फाइल खोज्दा वा लोड गर्दा त्रुटि भयो:", err);
-    }
-  });
-}
-
-
-function triggerCloudBackup(path, data, message) {
-  $.ajax({
-    url: "/api/backup", // Vercel को सर्भरलेस एन्डपोइन्ट
-    type: "POST",
-    contentType: "application/json",
-    data: JSON.stringify({
-      filePath: path,
-      jsonData: data,
-      commitMessage: message
-    }),
-    success: function (response) {
-      console.log("ब्याकअप स्थिति:", response.message);
-    },
-    error: function (xhr, status, error) {
-      console.error("सुरक्षित ब्याकअप असफल भयो:", xhr.responseJSON ? xhr.responseJSON.error : error);
-    }
-  });
-}
