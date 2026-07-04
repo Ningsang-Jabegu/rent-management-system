@@ -10,13 +10,13 @@ export default async function handler(req, res) {
   }
 
   const githubToken = process.env.GITHUB_PAT; 
-  const OWNER = "NingsangJabegu";
-  const REPO = "ArthaPath-Nepal";
+  const OWNER = "Ningsang-Jabegu";
+  const REPO = "jabegu-rent-portal-backup";
   
   // रोलको आधारमा गिटहबमा तोकिएको सही फाइलको बाटो
-  let filePath = "data/tenants.json"; 
+  let filePath = "data/users/tenants.json"; 
   if (role === "owner") {
-    filePath = "data/admin.json"; // अथवा तपाईँको एडमिन लिस्ट भएको single/multiple JSON फाइल
+    filePath = "data/users/admin.json"; // अथवा तपाईँको एडमिन लिस्ट भएको single/multiple JSON फाइल
   }
 
   try {
