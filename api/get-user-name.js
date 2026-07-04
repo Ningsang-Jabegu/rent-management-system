@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'User and Role parameters are required' });
   }
 
-  const githubToken = process.env.GITHUB_PAT; 
+  const githubToken = process.env.JABEGU_RENT_PORTAL_BACKUP_SECRET; 
   const OWNER = "Ningsang-Jabegu";
   const REPO = "jabegu-rent-portal-backup";
   
