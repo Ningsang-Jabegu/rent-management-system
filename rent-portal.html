@@ -135,45 +135,79 @@
         </div>
 
         <nav class="sidebar-nav-links">
+          <!-- 🏠 साझा ओभरभ्यु लिंक (लगइन रोल अनुसार ओभरभ्यु वर्कस्पेसमा लैजान्छ) -->
           <a href="#" class="nav-item active" data-target="overview_workspace">
             <i data-lucide="layout-dashboard"></i>
             <span>Overview Dashboard</span>
           </a>
 
-          <a href="#" class="nav-item" data-target="floors_workspace">
-            <i data-lucide="layers"></i>
-            <span>तल्ला र कोठाहरू (Floors & Rooms)</span>
-          </a>
+          <!-- ========================================================= -->
+          <!-- 🛠️ घरधनी (OWNER) का लागि मात्र देखिने मेनु ब्लक -->
+          <!-- ========================================================= -->
+          <div id="owner_only_nav_block" class="nav-role-block hide">
+            <a href="#" class="nav-item" data-target="floors_workspace">
+              <i data-lucide="layers"></i>
+              <span>तल्ला र कोठाहरू (Floors & Rooms)</span>
+            </a>
+            <a href="#" class="nav-item" data-target="tenants_workspace">
+              <i data-lucide="users"></i>
+              <span>डेरावाला व्यवस्थापन (Tenants Profile)</span>
+            </a>
+            <a href="#" class="nav-item" data-target="billing_workspace">
+              <i data-lucide="calculator"></i>
+              <span>भाडा र बिजुली बिलिङ (Billing)</span>
+            </a>
+            <a href="#" class="nav-item" data-target="payments_workspace">
+              <i data-lucide="wallet"></i>
+              <span>भुक्तानी इतिहास (Payment Ledger)</span>
+            </a>
+            <a href="#" class="nav-item" data-target="messages_workspace">
+              <i data-lucide="message-square"></i>
+              <span>सूचना तथा सन्देश (Notice Board)</span>
+            </a>
+            <a href="#" class="nav-item" data-target="maintenance_workspace">
+              <i data-lucide="wrench"></i>
+              <span>मर्मत सम्भार लग (Requests)</span>
+            </a>
+            <a href="#" class="nav-item" data-target="rules_workspace">
+              <i data-lucide="book-open"></i>
+              <span>घरको ब्लग/नियम (House Rules)</span>
+            </a>
+          </div>
 
-          <a href="#" class="nav-item" data-target="tenants_workspace">
-            <i data-lucide="users"></i>
-            <span>डेरावाला व्यवस्थापन (Tenants Profile)</span>
-          </a>
-
-          <a href="#" class="nav-item" data-target="billing_workspace">
-            <i data-lucide="calculator"></i>
-            <span>भाडा र बिजुली बिलिङ (Billing)</span>
-          </a>
-
-          <a href="#" class="nav-item" data-target="payments_workspace">
-            <i data-lucide="wallet"></i>
-            <span>भुक्तानी इतिहास (Payment Ledger)</span>
-          </a>
-
-          <a href="#" class="nav-item" data-target="messages_workspace">
-            <i data-lucide="message-square"></i>
-            <span>सूचना तथा सन्देश (Notice Board)</span>
-          </a>
-
-          <a href="#" class="nav-item" data-target="maintenance_workspace">
-            <i data-lucide="wrench"></i>
-            <span>मर्मत सम्भार लग (Requests)</span>
-          </a>
-
-          <a href="#" class="nav-item" data-target="rules_workspace">
-            <i data-lucide="book-open"></i>
-            <span>घरको ब्लग/नियम (House Rules)</span>
-          </a>
+          <!-- ========================================================= -->
+          <!-- 👤 डेरावाला (TENANT) का लागि मात्र देखिने मेनु ब्लक -->
+          <!-- ========================================================= -->
+          <div id="tenant_only_nav_block" class="nav-role-block hide">
+            <a href="#" class="nav-item" data-target="tenant_profile_workspace">
+              <i data-lucide="user-check"></i>
+              <span>मेरो प्रोफाइल (My Profile & Agreement)</span>
+            </a>
+            <a
+              href="#"
+              class="nav-item"
+              data-target="tenant_invoices_workspace"
+            >
+              <i data-lucide="file-text"></i>
+              <span>मासिक बिलहरू (My Invoices)</span>
+            </a>
+            <a href="#" class="nav-item" data-target="tenant_payment_workspace">
+              <i data-lucide="qr-code"></i>
+              <span>अनलाइन भुक्तानी (Pay via QR Code)</span>
+            </a>
+            <a href="#" class="nav-item" data-target="tenant_report_workspace">
+              <i data-lucide="alert-triangle"></i>
+              <span>मर्मतको लागि अनुरोध (Report a Problem)</span>
+            </a>
+            <a href="#" class="nav-item" data-target="tenant_notice_workspace">
+              <i data-lucide="megaphone"></i>
+              <span>घरधनीको सूचना बोर्ड (Notice Board)</span>
+            </a>
+            <a href="#" class="nav-item" data-target="tenant_rules_workspace">
+              <i data-lucide="shield-alert"></i>
+              <span>घरका नियमहरू (House Code)</span>
+            </a>
+          </div>
         </nav>
 
         <div class="sidebar-footer">
@@ -223,8 +257,7 @@
             <div class="jumbotron-text">
               <h2 id="dynamic_welcome_title">स्वागतम्, लोड हुँदैछ...</h2>
               <p id="dynamic_welcome_subtitle">
-                प्रणाली सुरक्षित ढोका, इन्टरनेट, र डिजिटल लेजर नियन्त्रण
-                क्षेत्र।
+                प्रणाली सुरक्षित पोर्टल, इन्टरनेट, र डिजिटल लेजर नियन्त्रण प्रणाली ।
               </p>
             </div>
             <div class="live-time-ticker">
@@ -235,6 +268,55 @@
 
           <div id="rentee_workspace" class="workspace-section hide">
             <div class="modern-metrics-row">
+              <!-- कार्ड १: तिर्नुपर्ने कुल रकम -->
+              <div class="metric-glass-card border-alert">
+                <div class="card-icon-wrap bg-alert-soft">
+                  <i data-lucide="credit-card" class="text-alert"></i>
+                </div>
+                <div class="card-data">
+                  <span class="card-label">तिर्नुपर्ने कुल रकम</span>
+                  <h3
+                    class="card-main-number text-alert"
+                    id="tenant_due_display"
+                  >
+                    रू १५,५४०.००
+                  </h3>
+                  <span class="card-meta-desc"
+                    >मासिक भाडा + बिजुली बिलको जोड</span
+                  >
+                </div>
+              </div>
+
+              <!-- कार्ड २: बिजुली युनिट रिडिङ -->
+              <div class="metric-glass-card">
+                <div class="card-icon-wrap bg-primary-soft">
+                  <i data-lucide="zap" class="text-primary"></i>
+                </div>
+                <div class="card-data">
+                  <span class="card-label">बिजुली युनिट रिडिङ</span>
+                  <h3 class="card-main-number">४५२ Units</h3>
+                  <span class="card-meta-desc">कोठाको मिटर बक्स रिडिङ</span>
+                </div>
+              </div>
+
+              <!-- कार्ड ३: भुक्तानी स्थिति ब्याज -->
+              <div class="metric-glass-card">
+                <div class="card-icon-wrap bg-success-soft">
+                  <i data-lucide="shield-check" class="text-success"></i>
+                </div>
+                <div class="card-data">
+                  <span class="card-label">भुक्तानी स्थिति</span>
+                  <div style="margin: 5px 0">
+                    <span
+                      class="badge status-pending"
+                      id="tenant_status_badge"
+                      style="font-size: 14px; padding: 6px 6px; display: inline-block;"
+                      >PENDING</span
+                    >
+                  </div>
+                  <span class="card-meta-desc">Current Payment Status</span>
+                </div>
+              </div>
               <div class="metric-glass-card border-alert">
                 <div class="card-icon-wrap bg-alert-soft">
                   <i data-lucide="credit-card" class="text-alert"></i>
@@ -927,6 +1009,110 @@
                 १. राती १० बजे मुख्य गेट बन्द हुनेछ। २. फोहोर व्यवस्थापन
                 प्रत्येक हप्ताको विहान तोकिएको गाडीमा गर्नुपर्नेछ।
               </p>
+            </div>
+          </div>
+
+          <!-- अ) मेरो प्रोफाइल र सम्झौता पत्र -->
+          <div id="tenant_profile_workspace" class="workspace-section hide">
+            <div class="canvas-welcome-jumbotron">
+              <div class="jumbotron-text">
+                <h2>मेरो प्रोफाइल र सम्झौता (My Profile)</h2>
+                <p>
+                  सम्झौता पत्र (Lease PDF), बुझाएको नागरिकताको फोटो, र कोठा
+                  नम्बर
+                </p>
+              </div>
+            </div>
+            <div class="content-glass-card">
+              <h4><i data-lucide="file-check"></i> डिजिटल सम्झौता पत्र</h4>
+              <p class="panel-inner-text">कोठा नम्बर: १०१ (भुईंतल्ला)</p>
+              <button
+                class="modern-secondary-btn"
+                onclick="alert('सम्झौता पत्र डाउनलोड हुँदैछ...')"
+              >
+                <i data-lucide="download"></i> सम्झौता पत्र डाउनलोड (PDF)
+              </button>
+            </div>
+          </div>
+
+          <!-- आ) मासिक बिलहरूको इतिहास -->
+          <div id="tenant_invoices_workspace" class="workspace-section hide">
+            <div class="canvas-welcome-jumbotron">
+              <div class="jumbotron-text">
+                <h2>मासिक बिलहरू (My Invoices)</h2>
+                <p>विगतका महिनाहरूमा घरधनीले पठाएका पुराना बिलहरूको इतिहास</p>
+              </div>
+            </div>
+            <!-- यहाँ बिल सम्बन्धी तालिका राख्न सक्नुहुन्छ -->
+          </div>
+
+          <!-- इ) अनलाइन भुक्तानी (QR Code विन्डो) -->
+          <div id="tenant_payment_workspace" class="workspace-section hide">
+            <div class="canvas-welcome-jumbotron">
+              <div class="jumbotron-text">
+                <h2>अनलाइन भुक्तानी (Pay via QR)</h2>
+                <p>
+                  Fonepay / NEPALPAY को payment-locked QR कोड स्क्यान गरेर भाडा
+                  बुझाउनुहोस्
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- ई) मर्मतको लागि अनुरोध फारम -->
+          <div id="tenant_report_workspace" class="workspace-section hide">
+            <div class="canvas-welcome-jumbotron">
+              <div class="jumbotron-text">
+                <h2>मर्मतको लागि अनुरोध (Report a Problem)</h2>
+                <p>
+                  कोठामा ढल, बत्ती वा पानी बिग्रिएमा घरधनीलाई सिधै मर्मतको लागि
+                  म्यासेज पठाउने
+                </p>
+              </div>
+            </div>
+            <div class="content-glass-card small-span">
+              <div class="modern-input-field-block">
+                <label class="field-label"
+                  >के समस्या आयो? विवरण लेख्नुहोस्</label
+                >
+                <textarea
+                  class="modern-dashboard-input"
+                  style="height: 100px; padding: 10px"
+                  placeholder="उदा: बाथरुमको बल्ब फ्युज भयो..."
+                ></textarea>
+              </div>
+              <button
+                class="modern-primary-action-btn"
+                style="width: auto; margin-top: 10px; padding: 0 20px"
+                onclick="alert('अनुरोध दर्ता भयो।')"
+              >
+                पठाउनुहोस्
+              </button>
+            </div>
+          </div>
+
+          <!-- उ) घरधनीको सूचना बोर्ड -->
+          <div id="tenant_notice_workspace" class="workspace-section hide">
+            <div class="canvas-welcome-jumbotron">
+              <div class="jumbotron-text">
+                <h2>घरधनीको सूचना बोर्ड (Notice Board)</h2>
+                <p>
+                  घरधनी बुबाले राख्नुभएको पछिल्लो सूचना वा सामूहिक म्यासेजहरू
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- ऊ) घरका नियमहरू -->
+          <div id="tenant_rules_workspace" class="workspace-section hide">
+            <div class="canvas-welcome-jumbotron">
+              <div class="jumbotron-text">
+                <h2>घरका नियमहरू (House Code of Conduct)</h2>
+                <p>
+                  फोहोर फाल्ने समय, गेट बन्द गर्ने समय र पालना गर्नुपर्ने
+                  सर्तहरू
+                </p>
+              </div>
             </div>
           </div>
         </div>

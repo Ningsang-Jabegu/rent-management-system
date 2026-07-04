@@ -102,28 +102,57 @@ const PortalDashboard = {
   },
 
   renderWorkspace: function (role) {
+    const self = this;
+
+    // सबै रोल ब्लकहरू सुरुमा लुकाउने
+    $(".nav-role-block").addClass("hide");
+
+    // URL बाट 'user' (जस्तै: ?role=owner&user=admin) प्यारामिटर तान्ने
+    const params = new URLSearchParams(window.location.search);
+    const usernameParam = params.get("user")
+      ? params.get("user").trim().toLowerCase()
+      : "";
+
+    // डेटा लोड हुँदै गर्दा देखिने अस्थायी सन्देश
+    $("#dynamic_welcome_title").text("स्वागतम्, विवरण लोड हुँदैछ...");
+
     if (role === "owner") {
       $("#owner_workspace").removeClass("hide");
       $("#active_role_badge").text("घरधनी खाता (Owner)");
-      $("#dynamic_welcome_title").text("स्वागतम्, घरधनी बुबा (Devendra)");
-
-      // घरधनीका लागि मात्र देखिने तत्वहरू सक्रिय गर्ने
-      $(".owner-only-action").removeClass("hide");
-      $(".tenant-only-action").addClass("hide");
+      $("#owner_only_nav_block").removeClass("hide");
 
       this.initIncomeAnalyticsChart();
     } else if (role === "rentee") {
       $("#rentee_workspace").removeClass("hide");
       $("#active_role_badge").text("डेरावाला खाता (Tenant)");
-      $("#dynamic_welcome_title").text("स्वागतम्, नारायण श्रेष्ठ");
-
-      // डेरावालाका लागि मात्र देखिने तत्वहरू सक्रिय गर्ने
-      $(".tenant-only-action").removeClass("hide");
-      $(".owner-only-action").addClass("hide");
+      $("#tenant_only_nav_block").removeClass("hide");
     } else {
-      // यदि रोल नमिलेमा सिधै लगइन विन्डोमा फिर्ता लैजाने
       window.location.href = "index.html";
+      return;
     }
+
+    // Vercel Serverless API मार्फत प्राइभेट गिटहबको JSON बाट full_name मगाउने
+    $.ajax({
+      url: `/api/get-user-name?user=${encodeURIComponent(usernameParam)}&role=${role}`,
+      type: "GET",
+      dataType: "json",
+      success: function (response) {
+        if (response && response.name) {
+          // गिटहबको 'full_name' सिधै यहाँ देखा पर्छ
+          $("#dynamic_welcome_title").text(`स्वागतम्, ${response.name}`);
+        } else {
+          const defaultName =
+            role === "owner" ? "घरधनी सदस्य" : "डेरावाला सदस्य";
+          $("#dynamic_welcome_title").text(`स्वागतम्, ${defaultName}`);
+        }
+      },
+      error: function () {
+        // नेटवर्क वा API फेल हुँदाको ब्याकअप हार्डकोडेड नामहरू
+        const fallbackName =
+          role === "owner" ? "Devendra Kumar Jabegu" : "डेरावाला";
+        $("#dynamic_welcome_title").text(`स्वागतम्, ${fallbackName}`);
+      },
+    });
 
     if (typeof lucide !== "undefined") lucide.createIcons();
   },
@@ -131,35 +160,32 @@ const PortalDashboard = {
   initNavigation: function () {
     const self = this;
 
-    // 📱 १. मोबाइल मेनु टगल बटन क्लिक इभेन्ट (Hamburger Menu Control)
+    // मोबाइल मेनु आइकन कन्ट्रोल
     $("#mobile_menu_toggle").on("click", function (e) {
-      e.stopPropagation(); // क्लिक इभेन्ट बाहिर जान नदिने
+      e.stopPropagation();
       $(".app-sidebar").toggleClass("sidebar-open");
     });
 
-    // 🖥️ २. डेस्कटप तथा मोबाइल दुवैमा ट्याब क्लिक हुँदा सेक्सन परिवर्तन गर्ने
+    // ट्याब चेन्ज कन्ट्रोल
     $(".nav-item").on("click", function (e) {
       e.preventDefault();
 
-      // साइडबारको एक्टिभ क्लास व्यवस्थापन
       $(".nav-item").removeClass("active");
       $(this).addClass("active");
 
       let target = $(this).attr("data-target");
 
-      // 'Overview' थिचेको हो भने युजर रोल अनुसार ओभरभ्यु सेट गर्ने
+      // ओभरभ्यु थिच्दा रोल अनुसारको ओभरभ्यु विन्डो सेट गर्ने
       if (target === "overview_workspace") {
         target =
           self.currentRole === "owner" ? "owner_workspace" : "rentee_workspace";
       }
 
-      // सबै वर्कस्पेस सेक्सनहरू एकमुष्ट लुकाउने
+      // 🔥 सबै रोलका सम्पूर्ण विन्डोजहरू एकमुष्ट हाइड गर्ने फिक्स
       $(".workspace-section").addClass("hide");
 
-      // चाहिएको एउटा सेक्सन मात्र अन-हाइड (Show) गर्ने
+      // एक्टिभ विन्डो शो गर्ने
       $("#" + target).removeClass("hide");
-
-      // 📱 मोबाइल फिक्स: ट्याब छनौट भइसकेपछि साइडबारलाई स्वतः बन्द (Slide Out) गराउने
       $(".app-sidebar").removeClass("sidebar-open");
 
       if (typeof lucide !== "undefined") {
@@ -167,7 +193,7 @@ const PortalDashboard = {
       }
     });
 
-    // ३. मोबाइलमा साइडबार खुला हुँदा बाहिर कतै क्लिक गरेमा साइडबार स्वतः बन्द गर्ने
+    // बाहिर क्लिक गर्दा मोबाइल मेनु बन्द गर्ने
     $(document).on("click", function (e) {
       if (!$(e.target).closest(".app-sidebar, #mobile_menu_toggle").length) {
         $(".app-sidebar").removeClass("sidebar-open");
