@@ -1,12 +1,10 @@
 // js/index.js
 
 $(document).ready(function () {
-  // यदि हामी लगइन पेज (index.html) मा छौँ भने लगइन फर्म एक्टिभ गराउने
   if ($("#login_form").length > 0) {
     LoginSystem.init();
   }
 
-  // यदि हामी ड्यासबोर्ड पेज (rent-portal.html) मा छौँ भने ड्यासबोर्ड एक्टिभ गराउने
   if ($(".app-dashboard-container").length > 0) {
     PortalDashboard.init();
   }
@@ -22,7 +20,6 @@ const LoginSystem = {
       $("#body_loading").addClass("hide");
     }, 600);
 
-    // युजरनेममा 'Enter' थिच्दा फोकस पासवर्डमा लैजाने
     $("#account_input").on("keypress", function (e) {
       if (e.which === 13) {
         e.preventDefault();
@@ -30,7 +27,6 @@ const LoginSystem = {
       }
     });
 
-    // फर्म सबमिट व्यवस्थापन
     $("#login_form").on("submit", function (e) {
       e.preventDefault();
       self.authenticateUser();
@@ -43,16 +39,11 @@ const LoginSystem = {
     const passwordPlain = $("#account_password").val();
 
     if (!username || !passwordPlain) {
-      $("#login_msg").text(
-        "कृपया प्रयोगकर्ता नाम र पासवर्ड प्रविष्ट गर्नुहोस्।",
-      );
+      $("#login_msg").text("कृपया प्रयोगकर्ता नाम र पासवर्ड प्रविष्ट गर्नुहोस्।");
       return;
     }
 
-    $("#login_btn")
-      .prop("disabled", true)
-      .find(".btn-text")
-      .text("प्रमाणिकरण हुँदैछ...");
+    $("#login_btn").prop("disabled", true).find(".btn-text").text("प्रमाणिकरण हुँदैछ...");
 
     $.ajax({
       url: "/api/login",
@@ -61,21 +52,21 @@ const LoginSystem = {
       data: JSON.stringify({ username: username, password: passwordPlain }),
       success: function (response) {
         if (response.success) {
-          window.location.href = `rent-portal.html?role=${response.role}`;
+          // URL मा role र user दुवै सुरक्षित रूपमा पठाउने
+          const targetUrl = `rent-portal.html?role=${encodeURIComponent(response.role)}&user=${encodeURIComponent(username)}`;
+          window.location.href = targetUrl;
+        } else {
+          $("#login_msg").text("लगइन असफल भयो।");
+          $("#login_btn").prop("disabled", false).find(".btn-text").text("लगइन गर्नुहोस्");
         }
       },
       error: function (xhr) {
-        const errorMsg = xhr.responseJSON
-          ? xhr.responseJSON.error
-          : "API सँग जडान हुन सकेन।";
+        const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : "API सँग जडान हुन सकेन।";
         $("#login_msg").text(errorMsg);
-        $("#login_btn")
-          .prop("disabled", false)
-          .find(".btn-text")
-          .text("लगइन गर्नुहोस्");
-      },
+        $("#login_btn").prop("disabled", false).find(".btn-text").text("लगइन गर्नुहोस्");
+      }
     });
-  },
+  }
 };
 
 // ==========================================
@@ -90,30 +81,23 @@ const PortalDashboard = {
       $("#body_loading").addClass("hide");
     }, 600);
 
-    // URL बाट गुडिरहेको रोल (owner वा rentee) लिने
     const params = new URLSearchParams(window.location.search);
     this.currentRole = params.get("role");
 
-    // ड्यासबोर्डमा रोल अनुसारको आवरण तयार गर्ने
     this.renderWorkspace(this.currentRole);
-
-    // साइडबारका लिंकहरू क्लिक गर्दा सेक्सन टगल गराउने न्याभिगेसन सुचारु गर्ने
     this.initNavigation();
   },
 
   renderWorkspace: function (role) {
     const self = this;
 
-    // सबै रोल ब्लकहरू सुरुमा लुकाउने
     $(".nav-role-block").addClass("hide");
 
-    // URL बाट 'user' (जस्तै: ?role=owner&user=admin) प्यारामिटर तान्ने
     const params = new URLSearchParams(window.location.search);
     const usernameParam = params.get("user")
       ? params.get("user").trim().toLowerCase()
       : "";
 
-    // डेटा लोड हुँदै गर्दा देखिने अस्थायी सन्देश
     $("#dynamic_welcome_title").text("स्वागतम्, विवरण लोड हुँदैछ...");
 
     if (role === "owner") {
@@ -131,14 +115,12 @@ const PortalDashboard = {
       return;
     }
 
-    // Vercel Serverless API मार्फत प्राइभेट गिटहबको JSON बाट full_name मगाउने
     $.ajax({
       url: `/api/get-user-name?user=${encodeURIComponent(usernameParam)}&role=${role}`,
       type: "GET",
       dataType: "json",
       success: function (response) {
         if (response && response.name) {
-          // गिटहबको 'full_name' सिधै यहाँ देखा पर्छ
           $("#dynamic_welcome_title").text(`स्वागतम्, ${response.name}`);
         } else {
           const defaultName =
@@ -147,7 +129,6 @@ const PortalDashboard = {
         }
       },
       error: function () {
-        // नेटवर्क वा API फेल हुँदाको ब्याकअप हार्डकोडेड नामहरू
         const fallbackName =
           role === "owner" ? "Devendra Kumar Jabegu" : "डेरावाला";
         $("#dynamic_welcome_title").text(`स्वागतम्, ${fallbackName}`);
@@ -160,13 +141,11 @@ const PortalDashboard = {
   initNavigation: function () {
     const self = this;
 
-    // मोबाइल मेनु आइकन कन्ट्रोल
     $("#mobile_menu_toggle").on("click", function (e) {
       e.stopPropagation();
       $(".app-sidebar").toggleClass("sidebar-open");
     });
 
-    // ट्याब चेन्ज कन्ट्रोल
     $(".nav-item").on("click", function (e) {
       e.preventDefault();
 
@@ -175,16 +154,12 @@ const PortalDashboard = {
 
       let target = $(this).attr("data-target");
 
-      // ओभरभ्यु थिच्दा रोल अनुसारको ओभरभ्यु विन्डो सेट गर्ने
       if (target === "overview_workspace") {
         target =
           self.currentRole === "owner" ? "owner_workspace" : "rentee_workspace";
       }
 
-      // 🔥 सबै रोलका सम्पूर्ण विन्डोजहरू एकमुष्ट हाइड गर्ने फिक्स
       $(".workspace-section").addClass("hide");
-
-      // एक्टिभ विन्डो शो गर्ने
       $("#" + target).removeClass("hide");
       $(".app-sidebar").removeClass("sidebar-open");
 
@@ -193,7 +168,6 @@ const PortalDashboard = {
       }
     });
 
-    // बाहिर क्लिक गर्दा मोबाइल मेनु बन्द गर्ने
     $(document).on("click", function (e) {
       if (!$(e.target).closest(".app-sidebar, #mobile_menu_toggle").length) {
         $(".app-sidebar").removeClass("sidebar-open");
@@ -236,14 +210,12 @@ const PortalDashboard = {
     const ratePerUnit = 12;
     const totalBill = baseRent + units * ratePerUnit;
 
-    // दुवै ड्यासबोर्डमा रकम परिवर्तन प्रतिबिम्बित गराउने
     $("#ledger_amount_label").text(`रू ${totalBill.toLocaleString()}`);
     $("#tenant_due_display").text(`रू ${totalBill.toLocaleString()}.००`);
     $("#owner_collected_display").text(
       `रू ${(30000 + totalBill).toLocaleString()}.००`,
     );
 
-    // नयाँ क्युआर कोड जेनेरेट गर्ने
     const updatedQRData = `00020101021230300010NEPALPAY0115984100000052040000530352454${totalBill.toFixed(2).length}${totalBill.toFixed(2)}5802NP5915LaxmiP_Jabegu6008BHAKTAPUR62110107INV10246304`;
     $("#tenant_qr").attr(
       "src",

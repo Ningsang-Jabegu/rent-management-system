@@ -1,5 +1,4 @@
 // api/login.js
-import axios from 'axios';
 import bcrypt from 'bcryptjs';
 
 export default async function handler(req, res) {
@@ -22,29 +21,49 @@ export default async function handler(req, res) {
 
     // १. पहिले admin.json बाट डाटा तान्ने
     try {
-      const adminRes = await axios.get(
+      const adminRes = await fetch(
         `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/data/users/admin.json`,
-        { headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Cache-Control': 'no-cache' } }
+        { 
+          headers: { 
+            Authorization: `token ${GITHUB_TOKEN}`, 
+            'Accept': 'application/vnd.github.v3+json',
+            'Cache-Control': 'no-cache' 
+          } 
+        }
       );
-      const admins = JSON.parse(Buffer.from(adminRes.data.content, 'base64').toString('utf-8'));
-      userFound = admins.find(u => u.username.toLowerCase().trim() === username.toLowerCase().trim());
-      if (userFound) assignedRole = "owner";
+      
+      if (adminRes.ok) {
+        const data = await adminRes.json();
+        const admins = JSON.parse(Buffer.from(data.content, 'base64').toString('utf-8'));
+        userFound = admins.find(u => u.username.toLowerCase().trim() === username.toLowerCase().trim());
+        if (userFound) assignedRole = "owner";
+      }
     } catch (e) {
-      if (e.response && e.response.status !== 404) throw e;
+      console.error("Admin file error:", e);
     }
 
     // २. यदि एडमिन भेटिएन भने tenants.json मा खोज्ने
     if (!userFound) {
       try {
-        const tenantRes = await axios.get(
+        const tenantRes = await fetch(
           `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/data/users/tenants.json`,
-          { headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Cache-Control': 'no-cache' } }
+          { 
+            headers: { 
+              Authorization: `token ${GITHUB_TOKEN}`, 
+              'Accept': 'application/vnd.github.v3+json',
+              'Cache-Control': 'no-cache' 
+            } 
+          }
         );
-        const tenants = JSON.parse(Buffer.from(tenantRes.data.content, 'base64').toString('utf-8'));
-        userFound = tenants.find(u => u.username.toLowerCase().trim() === username.toLowerCase().trim());
-        if (userFound) assignedRole = "rentee";
+        
+        if (tenantRes.ok) {
+          const data = await tenantRes.json();
+          const tenants = JSON.parse(Buffer.from(data.content, 'base64').toString('utf-8'));
+          userFound = tenants.find(u => u.username.toLowerCase().trim() === username.toLowerCase().trim());
+          if (userFound) assignedRole = "rentee";
+        }
       } catch (e) {
-        if (e.response && e.response.status !== 404) throw e;
+        console.error("Tenant file error:", e);
       }
     }
 
@@ -53,8 +72,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'त्रुटि: अवैध खाता पहिचान वा पासवर्ड मिलेन।' });
     }
 
-    // ४. Bcrypt म्याचिङ (सुरक्षित तरिकाले पासवर्ड दाँज्ने)
-    // यहाँ हामी .replace(/^\$2y\$/, '$2a$') थप्छौँ जसले ह्यासको संस्करणलाई सुरक्षित रूपमा मिलाउँछ
+    // ४. Bcrypt म्याचिङ
     const cleanHash = userFound.password_hash.replace(/^\$2y\$/, '$2a$').replace(/^\$2b\$/, '$2a$');
     const isPasswordValid = bcrypt.compareSync(password, cleanHash);
     

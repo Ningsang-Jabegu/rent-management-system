@@ -1,54 +1,64 @@
 // api/get-user-name.js
 export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Method Not Allowed" });
   }
 
   const { user, role } = req.query;
   if (!user || !role) {
-    return res.status(400).json({ error: 'User and Role parameters are required' });
+    return res
+      .status(400)
+      .json({ error: "User and Role parameters are required" });
   }
 
-  const githubToken = process.env.JABEGU_RENT_PORTAL_BACKUP_SECRET; 
+  const githubToken = process.env.JABEGU_RENT_PORTAL_BACKUP_SECRET;
+
+  if (!githubToken) {
+    return res
+      .status(500)
+      .json({ error: "GitHub Token missing in environment variables." });
+  }
   const OWNER = "Ningsang-Jabegu";
   const REPO = "jabegu-rent-portal-backup";
-  
-  // रोलको आधारमा गिटहबमा तोकिएको सही फाइलको बाटो
-  let filePath = "data/users/tenants.json"; 
+
+  let filePath = "tenants.json";
   if (role === "owner") {
-    filePath = "data/users/admin.json"; // अथवा तपाईँको एडमिन लिस्ट भएको single/multiple JSON फाइल
+    filePath = "admin.json";
   }
 
   try {
-    const githubUrl = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${filePath}`;
-    
+    const githubUrl = `https://api.github.com/repos/${OWNER}/${REPO}/contents/data/users/${filePath}`;
+
     const response = await fetch(githubUrl, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'Authorization': `token ${githubToken}`,
-        'Accept': 'application/vnd.github.v3.raw'
-      }
+        Authorization: `token ${githubToken}`,
+        Accept: "application/vnd.github.v3.raw",
+      },
     });
 
     if (!response.ok) {
-      return res.status(response.status).json({ error: 'GitHub data fetch failed' });
+      return res
+        .status(response.status)
+        .json({ error: "GitHub data fetch failed" });
     }
 
     const usersList = await response.json();
 
-    // १. तपाईँको नयाँ JSON संरचना अनुसार 'username' म्याच गराउने
     const currentUser = usersList.find(
-      u => u.username.toLowerCase() === user.toLowerCase()
+      (u) => u.username.toLowerCase() === user.toLowerCase(),
     );
 
-    // २. 'full_name' कुञ्जीबाट नाम तानेर फ्रन्टइन्डमा फर्काउने
     if (currentUser && currentUser.full_name) {
-      return res.status(200).json({ name: currentUser.full_name });
+      // 🔥 मुख्य सुरक्षा फिक्स: नाम के साथ भूमिका (role) भी रिटर्न करें
+      return res.status(200).json({ 
+        name: currentUser.full_name,
+        role: role 
+      });
     } else {
-      return res.status(404).json({ error: 'प्रयोगकर्ताको नाम फेला परेन।' });
+      return res.status(404).json({ error: "प्रयोगकर्ताको नाम फेला परेन।" });
     }
-
   } catch (error) {
-    return res.status(500).json({ error: 'ब्याकइन्डमा प्राविधिक त्रुटि आयो।' });
+    return res.status(500).json({ error: "ब्याकइन्डमा प्राविधिक त्रुटि आयो।" });
   }
 }
