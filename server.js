@@ -2,9 +2,6 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import axios from 'axios';
-import loginHandler from './api/login.js';
-import getUserNameHandler from './api/get-user-name.js';
-import backupHandler from './api/backup.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,31 +49,6 @@ app.use('/api/jabegu-rent-portal', async (req, res) => {
     const status = error.response ? error.response.status : 502;
     const data = error.response ? error.response.data : { error: 'Remote gateway error', message: error.message };
     return res.status(status).json(data);
-  }
-});
-
-// Legacy/Local API Endpoints
-app.all('/api/login', async (req, res, next) => {
-  try {
-    await loginHandler(req, res);
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.all('/api/get-user-name', async (req, res, next) => {
-  try {
-    await getUserNameHandler(req, res);
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.all('/api/backup', async (req, res, next) => {
-  try {
-    await backupHandler(req, res);
-  } catch (error) {
-    next(error);
   }
 });
 

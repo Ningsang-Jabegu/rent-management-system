@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "node server.js",
     "build": "echo 'Build complete'",
-    "lint": "node -c server.js api/login.js api/get-user-name.js api/backup.js",
+    "lint": "node -c server.js",
     "start": "node server.js"
   },
   "dependencies": {
