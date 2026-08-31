@@ -1,0 +1,6 @@
+{
+  "name": "Jabegu Niwas Rent Portal",
+  "description": "WiFi & Rent Management Portal for Jabegu Niwas",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
