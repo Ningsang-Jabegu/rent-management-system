@@ -15,3 +15,8 @@ build/
 Thumbs.db
 .vercel
 .env*
+
+api-backend/**
+api-backend/
+
+jabegu-rent-portal-backup
