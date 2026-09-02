@@ -4,7 +4,7 @@
   "rewrites": [
     {
       "source": "/api/jabegu-rent-portal/(.*)",
-      "destination": "https://api-jabegu-rent-portal.onrender.com/api/jabegu-rent-portal/$1"
+      "destination": "https://api.ningsangjabegu.com.np/api/jabegu-rent-portal/$1"
     }
   ]
 }

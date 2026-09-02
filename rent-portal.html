@@ -718,17 +718,21 @@
                   जबेगु निवासमा बस्दा पालना गर्नुपर्ने अनुशासन, सर्त तथा डिजिटल नियम पुस्तिका
                 </p>
               </div>
+              <button
+                class="modern-primary-action-btn"
+                style="width: auto; padding: 10px 20px;"
+                onclick="PortalDashboard.openEditRulesModal()"
+              >
+                <i data-lucide="edit"></i> नियम सम्पादन गर्नुहोस्
+              </button>
             </div>
             <div class="content-glass-card">
               <div class="card-header-inline">
                 <h4><i data-lucide="shield"></i> मुख्य आचारसंहिता</h4>
               </div>
-              <p class="panel-inner-text" style="line-height: 1.8;">
-                १. राती १०:०० बजे मुख्य गेट बन्द हुनेछ।<br />
-                २. फोहोर व्यवस्थापन प्रत्येक हप्ताको विहान तोकिएको गाडीमा गर्नुपर्नेछ।<br />
-                ३. बिजुली र पानीको अनावश्यक अपव्यय नगर्नुहोला।<br />
-                ४. प्रत्येक महिनाको ५ गतेभित्र मासिक भाडा तथा बिजुली महसुल भुक्तानी गर्नुपर्नेछ।
-              </p>
+              <div id="owner_rules_container" class="panel-inner-text" style="line-height: 1.8;">
+                लोड हुँदैछ...
+              </div>
             </div>
           </div>
 
@@ -896,11 +900,12 @@
               </div>
             </div>
             <div class="content-glass-card">
-              <p class="panel-inner-text" style="line-height: 1.8;">
-                १. राती १०:०० बजे मुख्य गेट बन्द हुनेछ।<br />
-                २. फोहोर व्यवस्थापन प्रत्येक हप्ताको विहान तोकिएको गाडीमा गर्नुपर्नेछ।<br />
-                ३. बिजुली र पानीको अनावश्यक अपव्यय नगर्नुहोला।
-              </p>
+              <div class="card-header-inline">
+                <h4><i data-lucide="shield-check"></i> मुख्य आचारसंहिता</h4>
+              </div>
+              <div id="tenant_rules_container" class="panel-inner-text" style="line-height: 1.8;">
+                लोड हुँदैछ...
+              </div>
             </div>
           </div>
         </div>
@@ -1303,6 +1308,50 @@
             बन्द गर्नुहोस्
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- मोडल ६: घरको नियम सम्पादन मोडल (Edit House Rules Modal - Admin) -->
+    <div id="edit_rules_modal" class="app-modal-overlay hide" role="dialog" aria-modal="true">
+      <div class="app-modal-card">
+        <div class="app-modal-header">
+          <div class="app-modal-title">
+            <i data-lucide="book-open"></i> घरको नियम सम्पादन (Edit House Rules)
+          </div>
+          <button type="button" class="app-modal-close-btn" aria-label="Close">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <form id="edit_rules_form" onsubmit="event.preventDefault(); PortalDashboard.submitEditRulesAction();">
+          <div class="app-modal-body">
+            <p class="panel-inner-text" style="margin-bottom: 12px;">
+              प्रत्येक नियमलाई छुट्टै लाइन (New Line) मा लेख्नुहोस्:
+            </p>
+            <div class="modern-input-field-block">
+              <label class="field-label">घरका नियमहरू (House Rules)</label>
+              <textarea
+                id="edit_rules_textarea"
+                class="modern-dashboard-input"
+                style="height: 180px; padding: 12px; line-height: 1.6;"
+                placeholder="१. राती १०:०० बजे मुख्य गेट बन्द हुनेछ।&#10;२. फोहोर व्यवस्थापन समयमै गर्नुहोस्।&#10;३. बिजुली र पानीको अनावश्यक अपव्यय नगर्नुहोला।"
+                required
+              ></textarea>
+            </div>
+          </div>
+          <div class="app-modal-footer">
+            <button type="button" class="modern-secondary-btn modal-cancel-btn">
+              रद्द गर्नुहोस्
+            </button>
+            <button
+              type="submit"
+              id="btn_edit_rules_submit"
+              class="modern-primary-action-btn"
+              style="width: auto; padding: 10px 22px;"
+            >
+              <i data-lucide="save"></i> नियम सुरक्षित गर्नुहोस्
+            </button>
+          </div>
+        </form>
       </div>
     </div>
 

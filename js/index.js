@@ -1,7 +1,8 @@
 // js/index.js
-// Jabegu Niwas Rent Management Portal - Full-Stack Client Engine
+// Jabegu Niwas Rent Management Portal - Full-Stack Frontend Engine
 
-const API_BASE = '/api/jabegu-rent-portal';
+const API_BASE_URL = 'https://api.ningsangjabegu.com.np';
+const API_BASE = 'https://api.ningsangjabegu.com.np/api/jabegu-rent-portal';
 
 // ==========================================
 // ०. सुरक्षित सेसन प्रबन्धक (Unique Season/Session Slug Engine)
@@ -71,7 +72,7 @@ const SessionManager = {
   getCurrentSession: function () {
     const params = new URLSearchParams(window.location.search);
     const urlSlug = params.get('sess') || params.get('session');
-    
+
     if (urlSlug) {
       const sess = this.getSessionBySlug(urlSlug);
       if (sess) {
@@ -119,64 +120,47 @@ const SessionManager = {
 };
 
 // ==========================================
-// ०. API Gateway Client Interface
+// ०. API Gateway Client Interface (Official Backend)
 // ==========================================
 const ApiService = {
   // 1. Authentication
   login: async function (username, password) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
-
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || data.message || 'प्रमाणिकरण असफल भयो (Authentication failed)');
-      }
-      return data;
-    } catch (e) {
-      throw e;
-    }
-  },
-
-  // 2. Rentee: Fetch Bills
-  getMyBills: async function (tenantUsername) {
-    try {
-      const res = await fetch(`${API_BASE}/rentee/my-bills/${encodeURIComponent(tenantUsername)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.bills && Array.isArray(data.bills)) {
-          return data.bills;
-        }
-      }
-    } catch (e) {
-      console.warn('Remote getMyBills error, falling back to local store:', e);
-    }
-    return DataStore.getBillsForTenant(tenantUsername);
-  },
-
-  // 2. Rentee: Submit Payment Proof
-  submitProof: async function (billId, base64Image) {
-    const res = await fetch(`${API_BASE}/rentee/submit-proof`, {
+    const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ billId, base64Image })
+      body: JSON.stringify({ username, password })
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.error || data.message || 'रसिद अपलोड असफल भयो (Upload failed)');
+    if (!res.ok || (data && data.success === false)) {
+      throw new Error(data.error || data.message || 'प्रमाणिकरण असफल भयो (Authentication failed)');
     }
     return data;
   },
 
-  // 3. Admin: Create Tenant
+  // 2. Admin Operations
+  // A. Fetch Dashboard Overview
+  getDashboardOverview: async function () {
+    const res = await fetch(`${API_BASE}/admin/dashboard-overview`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || (data && data.success === false)) {
+      throw new Error(data.error || data.message || 'ड्यासबोर्ड विवरण लोड हुन सकेन');
+    }
+    return data;
+  },
+
+  // B. Fetch All Tenants
+  getTenants: async function () {
+    const res = await fetch(`${API_BASE}/admin/tenants`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || data.message || 'डेरावालाहरूको सूची लोड हुन सकेन');
+    }
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.tenants)) return data.tenants;
+    return [];
+  },
+
+  // C. Create Tenant
   createTenant: async function (tenantData) {
     const res = await fetch(`${API_BASE}/admin/create-tenant`, {
       method: 'POST',
@@ -184,13 +168,13 @@ const ApiService = {
       body: JSON.stringify(tenantData)
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
+    if (!res.ok || (data && data.success === false)) {
       throw new Error(data.error || data.message || 'डेरावाला दर्ता असफल भयो (Tenant creation failed)');
     }
     return data;
   },
 
-  // 3. Admin: Generate Monthly Bill
+  // D. Generate Monthly Bill
   generateBill: async function (billData) {
     const res = await fetch(`${API_BASE}/admin/generate-bill`, {
       method: 'POST',
@@ -198,13 +182,13 @@ const ApiService = {
       body: JSON.stringify(billData)
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
+    if (!res.ok || (data && data.success === false)) {
       throw new Error(data.error || data.message || 'बिल जारी असफल भयो (Bill generation failed)');
     }
     return data;
   },
 
-  // 3. Admin: Verify Payment
+  // E. Verify Payment (Approve / Reject)
   verifyPayment: async function (billId, isApproved) {
     const res = await fetch(`${API_BASE}/admin/verify-payment`, {
       method: 'POST',
@@ -212,13 +196,65 @@ const ApiService = {
       body: JSON.stringify({ billId, isApproved })
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
+    if (!res.ok || (data && data.success === false)) {
       throw new Error(data.error || data.message || 'प्रमाणिकरण अपडेट असफल भयो (Verification update failed)');
     }
     return data;
   },
 
-  // Resolve Image URL
+  // F. House Rules (Get & Update)
+  getHouseRules: async function () {
+    const res = await fetch(`${API_BASE}/admin/house-rules`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || data.message || 'घरको नियम लोड हुन सकेन');
+    }
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.rules)) return data.rules;
+    return [];
+  },
+
+  updateHouseRules: async function (rules) {
+    const res = await fetch(`${API_BASE}/admin/update-house-rules`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rules })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || (data && data.success === false)) {
+      throw new Error(data.error || data.message || 'घरको नियम अद्यावधिक असफल भयो');
+    }
+    return data;
+  },
+
+  // 3. Rentee Operations
+  // A. Fetch Tenant Bills
+  getMyBills: async function (tenantUsername) {
+    const res = await fetch(`${API_BASE}/rentee/my-bills/${encodeURIComponent(tenantUsername)}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || data.message || 'मासिक बिलहरू लोड हुन सकेन');
+    }
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.bills)) return data.bills;
+    return [];
+  },
+
+  // B. Submit Payment Proof Image
+  submitProof: async function (billId, base64Image) {
+    const res = await fetch(`${API_BASE}/rentee/submit-proof`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ billId, base64Image })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || (data && data.success === false)) {
+      throw new Error(data.error || data.message || 'रसिद अपलोड असफल भयो (Upload failed)');
+    }
+    return data;
+  },
+
+  // C. Serve / Display Proof Image
   getProofImageUrl: function (proof) {
     if (!proof) return './img/logo.png';
     if (proof.startsWith('data:') || proof.startsWith('http://') || proof.startsWith('https://')) {
@@ -230,176 +266,17 @@ const ApiService = {
 };
 
 // ==========================================
-// स्थानीय डाटा व्यवस्थापक (Local Data Store & Cache)
-// ==========================================
-const DataStore = {
-  TENANTS_KEY: 'jabegu_portal_tenants_v2',
-  BILLS_KEY: 'jabegu_portal_bills_v2',
-  NOTICES_KEY: 'jabegu_portal_notices_v1',
-  MAINTENANCE_KEY: 'jabegu_portal_maintenance_v1',
-
-  initDefaults: function () {
-    if (!localStorage.getItem(this.TENANTS_KEY)) {
-      const defaultTenants = [
-        {
-          username: 'aanayas',
-          password: 'password123',
-          fullName: 'Aanayas Limbu',
-          floor: ['1st Floor', '2nd Floor'],
-          floorRent: 15000,
-          phone: '९८५१२३४५६७',
-          status: 'सक्रिय'
-        },
-        {
-          username: 'narayan',
-          password: 'password123',
-          fullName: 'नारायण श्रेष्ठ',
-          floor: ['Ground Floor (Room 101)'],
-          floorRent: 15000,
-          phone: '९८५१०२३४५६',
-          status: 'सक्रिय'
-        },
-        {
-          username: 'sarita',
-          password: 'password123',
-          fullName: 'सरिता राई',
-          floor: ['2nd Floor (Room 202)'],
-          floorRent: 18000,
-          phone: '९८४१२९८७६५',
-          status: 'सक्रिय'
-        }
-      ];
-      localStorage.setItem(this.TENANTS_KEY, JSON.stringify(defaultTenants));
-    }
-
-    if (!localStorage.getItem(this.BILLS_KEY)) {
-      const defaultBills = [
-        {
-          id: 'BILL-1788203161040',
-          tenantUsername: 'aanayas',
-          floors: ['1st Floor', '2nd Floor'],
-          previousMeterReading: 140,
-          currentMeterReading: 160,
-          unitsConsumed: 20,
-          ratePerUnit: 12,
-          electricityAmount: 240,
-          floorRent: 15000,
-          totalAmount: 15240,
-          status: 'unpaid',
-          proofImage: null,
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: 'BILL-1788203161041',
-          tenantUsername: 'narayan',
-          floors: ['Ground Floor (Room 101)'],
-          previousMeterReading: 410,
-          currentMeterReading: 455,
-          unitsConsumed: 45,
-          ratePerUnit: 12,
-          electricityAmount: 540,
-          floorRent: 15000,
-          totalAmount: 15540,
-          status: 'pending_verification',
-          proofImage: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600&auto=format&fit=crop&q=60',
-          createdAt: new Date(Date.now() - 86400000 * 2).toISOString()
-        },
-        {
-          id: 'BILL-1788203161042',
-          tenantUsername: 'sarita',
-          floors: ['2nd Floor (Room 202)'],
-          previousMeterReading: 280,
-          currentMeterReading: 310,
-          unitsConsumed: 30,
-          ratePerUnit: 12,
-          electricityAmount: 360,
-          floorRent: 18000,
-          totalAmount: 18360,
-          status: 'paid via QR',
-          proofImage: null,
-          createdAt: new Date(Date.now() - 86400000 * 15).toISOString()
-        }
-      ];
-      localStorage.setItem(this.BILLS_KEY, JSON.stringify(defaultBills));
-    }
-  },
-
-  getTenants: function () {
-    try {
-      return JSON.parse(localStorage.getItem(this.TENANTS_KEY)) || [];
-    } catch {
-      return [];
-    }
-  },
-
-  saveTenant: function (tenant) {
-    const list = this.getTenants();
-    const existingIdx = list.findIndex(t => t.username.toLowerCase() === tenant.username.toLowerCase());
-    if (existingIdx >= 0) {
-      list[existingIdx] = { ...list[existingIdx], ...tenant };
-    } else {
-      list.push(tenant);
-    }
-    localStorage.setItem(this.TENANTS_KEY, JSON.stringify(list));
-  },
-
-  getAllBills: function () {
-    try {
-      return JSON.parse(localStorage.getItem(this.BILLS_KEY)) || [];
-    } catch {
-      return [];
-    }
-  },
-
-  getBillsForTenant: function (username) {
-    const all = this.getAllBills();
-    return all.filter(b => b.tenantUsername && b.tenantUsername.toLowerCase() === username.toLowerCase());
-  },
-
-  saveBill: function (bill) {
-    const list = this.getAllBills();
-    const existingIdx = list.findIndex(b => b.id === bill.id);
-    if (existingIdx >= 0) {
-      list[existingIdx] = { ...list[existingIdx], ...bill };
-    } else {
-      list.unshift(bill);
-    }
-    localStorage.setItem(this.BILLS_KEY, JSON.stringify(list));
-  },
-
-  updateBillProof: function (billId, proofImage) {
-    const list = this.getAllBills();
-    const b = list.find(x => x.id === billId);
-    if (b) {
-      b.proofImage = proofImage;
-      b.status = 'pending_verification';
-      localStorage.setItem(this.BILLS_KEY, JSON.stringify(list));
-    }
-  },
-
-  updateBillStatus: function (billId, status) {
-    const list = this.getAllBills();
-    const b = list.find(x => x.id === billId);
-    if (b) {
-      b.status = status;
-      localStorage.setItem(this.BILLS_KEY, JSON.stringify(list));
-    }
-  }
-};
-
-// ==========================================
 // १. लगइन प्रणाली (Login Panel Logic)
 // ==========================================
 const LoginSystem = {
   init: function () {
     const self = this;
-    DataStore.initDefaults();
 
     setTimeout(function () {
       $('#body_loading').addClass('hide');
     }, 400);
 
-    // Auto-fill from localStorage if available
+    // Auto-fill username from localStorage if available
     const savedUser = localStorage.getItem('username');
     if (savedUser && $('#account_input').length) {
       $('#account_input').val(savedUser);
@@ -430,75 +307,32 @@ const LoginSystem = {
 
     $('#login_btn').prop('disabled', true).find('.btn-text').text('प्रमाणिकरण हुँदैछ...');
 
-    let authSuccess = false;
-    let authPayload = null;
-
-    // 1. Attempt remote gateway if accessible
     try {
       const response = await ApiService.login(username, passwordPlain);
-      if (response && (response.success || response.token || response.role)) {
-        authSuccess = true;
-        authPayload = {
+      if (response && (response.success || response.role || response.token)) {
+        const authPayload = {
           username: response.username || username,
-          name: response.name || username,
+          name: response.name || (username === 'admin' ? 'Devendra Kumar Jabegu' : username),
           role: response.role || (username === 'admin' ? 'owner' : 'rentee'),
           token: response.token
         };
+
+        // Persist username, role, and name in localStorage upon successful authentication
+        localStorage.setItem('username', authPayload.username);
+        localStorage.setItem('name', authPayload.name);
+        localStorage.setItem('role', authPayload.role);
+
+        // Create unique season/session slug
+        const sessionSlug = SessionManager.createSession(authPayload);
+        window.location.href = `rent-portal.html?sess=${encodeURIComponent(sessionSlug)}`;
+        return;
+      } else {
+        throw new Error(response.message || response.error || 'प्रमाणिकरण असफल भयो (Authentication failed)');
       }
     } catch (err) {
-      console.warn('Remote API login unavailable, verifying with local authentication engine:', err.message || err);
+      $('#login_msg').text(err.message || 'प्रयोगकर्ता नाम वा पासवर्ड मिलेन (Authentication failed)');
+      $('#login_btn').prop('disabled', false).find('.btn-text').text('लगइन गर्नुहोस्');
     }
-
-    // 2. Client-Side Authentication Engine (seamless for Vercel static & offline deployments)
-    if (!authSuccess) {
-      // Check Owner / Admin
-      if (username === 'admin' || username === 'owner' || username === 'devendra') {
-        const allowedAdminPasswords = ['admin123', 'admin', 'password123', 'password', 'devendra123', '123456', 'jabegu'];
-        if (allowedAdminPasswords.includes(passwordPlain) || passwordPlain.length >= 3) {
-          authSuccess = true;
-          authPayload = {
-            username: 'admin',
-            name: 'Devendra Kumar Jabegu',
-            role: 'owner'
-          };
-        }
-      } else {
-        // Check Tenants in Local DataStore
-        const tenants = DataStore.getTenants();
-        const matchedTenant = tenants.find(t => t.username && t.username.toLowerCase() === username);
-
-        if (matchedTenant) {
-          authSuccess = true;
-          authPayload = {
-            username: matchedTenant.username,
-            name: matchedTenant.fullName || matchedTenant.username,
-            role: 'rentee'
-          };
-        } else if (username === 'aanayas' || username === 'narayan' || username === 'sarita') {
-          // Default known tenants fallback
-          const defaultNames = {
-            aanayas: 'Aanayas Limbu',
-            narayan: 'नारायण श्रेष्ठ',
-            sarita: 'सरिता राई'
-          };
-          authSuccess = true;
-          authPayload = {
-            username: username,
-            name: defaultNames[username] || username,
-            role: 'rentee'
-          };
-        }
-      }
-    }
-
-    if (authSuccess && authPayload) {
-      const sessionSlug = SessionManager.createSession(authPayload);
-      window.location.href = `rent-portal.html?sess=${encodeURIComponent(sessionSlug)}`;
-      return;
-    }
-
-    $('#login_msg').text('प्रयोगकर्ता नाम वा पासवर्ड मिलेन (Invalid credentials)');
-    $('#login_btn').prop('disabled', false).find('.btn-text').text('लगइन गर्नुहोस्');
   }
 };
 
@@ -512,12 +346,13 @@ const PortalDashboard = {
   currentUsername: null,
   currentName: null,
   currentBills: [],
+  currentTenants: [],
+  currentHouseRules: [],
   selectedBillForInspection: null,
   selectedBillForPayment: null,
 
   init: function () {
     const self = this;
-    DataStore.initDefaults();
 
     setTimeout(function () {
       $('#body_loading').addClass('hide');
@@ -694,23 +529,25 @@ const PortalDashboard = {
   // ==========================================
   loadRenteeData: async function () {
     try {
-      const bills = await ApiService.getMyBills(this.currentUsername);
-      this.currentBills = bills || [];
+      const [billsList, houseRules] = await Promise.all([
+        ApiService.getMyBills(this.currentUsername).catch(e => {
+          console.warn('Rentee bills error:', e);
+          return [];
+        }),
+        ApiService.getHouseRules().catch(e => {
+          console.warn('House rules error:', e);
+          return [];
+        })
+      ]);
 
-      // Save locally to keep in sync
-      if (bills && bills.length > 0) {
-        bills.forEach(b => DataStore.saveBill(b));
-      } else {
-        this.currentBills = DataStore.getBillsForTenant(this.currentUsername);
-      }
+      this.currentBills = billsList || [];
+      this.currentHouseRules = houseRules || [];
 
       this.renderRenteeDashboard();
       this.renderRenteeInvoices();
+      this.renderTenantHouseRules(this.currentHouseRules);
     } catch (e) {
       console.error('Rentee data error:', e);
-      this.currentBills = DataStore.getBillsForTenant(this.currentUsername);
-      this.renderRenteeDashboard();
-      this.renderRenteeInvoices();
     }
   },
 
@@ -754,13 +591,13 @@ const PortalDashboard = {
   },
 
   renderRenteeInvoices: function () {
-    const $tbody = $('#tenant_invoices_table_body');
+    const $tbody = $('#tenant_invoices_table_body, #tenant_invoices_page_body');
     if (!$tbody.length) return;
 
     $tbody.empty();
 
     if (this.currentBills.length === 0) {
-      $tbody.html('<tr><td colspan="7" class="empty-state-notice">अहिलेसम्म कुनै मासिक बिल जारी गरिएको छैन।</td></tr>');
+      $tbody.html('<tr><td colspan="8" class="empty-state-notice">अहिलेसम्म कुनै मासिक बिल जारी गरिएको छैन।</td></tr>');
       return;
     }
 
@@ -825,38 +662,73 @@ const PortalDashboard = {
   // घरधनी (Owner / Admin) डाटा लोडिङ र रेन्डरिङ
   // ==========================================
   loadOwnerData: async function () {
-    const tenants = DataStore.getTenants();
-    const allBills = DataStore.getAllBills();
-    this.currentBills = allBills;
+    try {
+      const [overviewData, tenantsList, houseRules] = await Promise.all([
+        ApiService.getDashboardOverview().catch(e => {
+          console.warn('Dashboard overview error:', e);
+          return null;
+        }),
+        ApiService.getTenants().catch(e => {
+          console.warn('Tenants list error:', e);
+          return [];
+        }),
+        ApiService.getHouseRules().catch(e => {
+          console.warn('House rules error:', e);
+          return [];
+        })
+      ]);
 
-    this.renderOwnerMetrics(tenants, allBills);
-    this.renderTenantsTable(tenants);
-    this.renderOwnerBillingTable(allBills);
-    this.renderPaymentVerificationQueue(allBills);
-    this.populateTenantDropdowns(tenants);
-    this.initIncomeAnalyticsChart();
+      const tenants = Array.isArray(tenantsList) ? tenantsList : [];
+      let allBills = [];
+      let verificationQueue = [];
+      let stats = null;
+
+      if (overviewData) {
+        stats = overviewData.stats;
+        allBills = overviewData.allInvoices || [];
+        verificationQueue = overviewData.verificationQueue || [];
+      }
+
+      this.currentBills = allBills;
+      this.currentTenants = tenants;
+      this.currentHouseRules = Array.isArray(houseRules) ? houseRules : [];
+
+      this.renderOwnerMetrics(stats, tenants, allBills, verificationQueue);
+      this.renderTenantsTable(tenants);
+      this.renderOwnerBillingTable(allBills);
+      this.renderPaymentVerificationQueue(verificationQueue.length > 0 ? verificationQueue : allBills.filter(b => b.status === 'pending_verification' || b.proofImage));
+      this.populateTenantDropdowns(tenants);
+      this.renderOwnerHouseRules(this.currentHouseRules);
+      this.initIncomeAnalyticsChart(allBills);
+    } catch (err) {
+      console.error('Owner data loading error:', err);
+    }
   },
 
-  renderOwnerMetrics: function (tenants, bills) {
-    $('#owner_total_tenants').text(`${tenants.length} जना`);
+  renderOwnerMetrics: function (stats, tenants, bills, verificationQueue) {
+    if (stats) {
+      $('#owner_total_tenants').text(`${stats.activeTenants || tenants.length || 0} जना`);
+      $('#owner_invoiced_display').text(`रू ${(Number(stats.totalInvoiced) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
+      $('#owner_collected_display').text(`रू ${(Number(stats.totalCollected) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
+      $('#owner_pending_display').text(`रू ${(Number(stats.totalPendingDues) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
+      $('#owner_verification_queue_count').text(`${stats.pendingVerificationCount || verificationQueue.length || 0} पेन्डिङ`);
+    } else {
+      $('#owner_total_tenants').text(`${tenants.length} जना`);
 
-    // Total monthly invoiced
-    const totalInvoiced = bills.reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
-    // Total collected (status == 'paid via QR' or 'paid')
-    const totalCollected = bills
-      .filter(b => b.status === 'paid via QR' || b.status === 'paid')
-      .reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
-    // Total pending dues
-    const totalPending = bills
-      .filter(b => b.status === 'unpaid' || b.status === 'pending_verification' || b.status === 'rejected')
-      .reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
+      const totalInvoiced = bills.reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
+      const totalCollected = bills
+        .filter(b => b.status === 'paid via QR' || b.status === 'paid')
+        .reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
+      const totalPending = bills
+        .filter(b => b.status === 'unpaid' || b.status === 'pending_verification' || b.status === 'rejected')
+        .reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
+      const pendingCount = bills.filter(b => b.status === 'pending_verification').length;
 
-    const pendingVerificationCount = bills.filter(b => b.status === 'pending_verification').length;
-
-    $('#owner_invoiced_display').text(`रू ${totalInvoiced.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
-    $('#owner_collected_display').text(`रू ${totalCollected.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
-    $('#owner_pending_display').text(`रू ${totalPending.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
-    $('#owner_verification_queue_count').text(`${pendingVerificationCount} पेन्डिङ`);
+      $('#owner_invoiced_display').text(`रू ${totalInvoiced.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
+      $('#owner_collected_display').text(`रू ${totalCollected.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
+      $('#owner_pending_display').text(`रू ${totalPending.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
+      $('#owner_verification_queue_count').text(`${pendingCount} पेन्डिङ`);
+    }
   },
 
   renderTenantsTable: function (tenants) {
@@ -864,8 +736,8 @@ const PortalDashboard = {
     if (!$tbody.length) return;
 
     $tbody.empty();
-    if (tenants.length === 0) {
-      $tbody.html('<tr><td colspan="6" class="empty-state-notice">कुनै पनि डेरावाला भेटिएन। नयाँ डेरावाला थप्नुहोस्।</td></tr>');
+    if (!tenants || tenants.length === 0) {
+      $tbody.html('<tr><td colspan="5" class="empty-state-notice">कुनै पनि डेरावाला भेटिएन। नयाँ डेरावाला थप्नुहोस्।</td></tr>');
       return;
     }
 
@@ -898,12 +770,12 @@ const PortalDashboard = {
   },
 
   renderOwnerBillingTable: function (bills) {
-    const $tbody = $('#admin_bills_table_body, #owner_overview_bills_body');
+    const $tbody = $('#admin_bills_table_body, #owner_overview_bills_body, #payments_ledger_table_body');
     if (!$tbody.length) return;
 
     $tbody.empty();
-    if (bills.length === 0) {
-      $tbody.html('<tr><td colspan="7" class="empty-state-notice">कुनै पनि बिल रेकर्ड भेटिएन।</td></tr>');
+    if (!bills || bills.length === 0) {
+      $tbody.html('<tr><td colspan="8" class="empty-state-notice">कुनै पनि बिल रेकर्ड भेटिएन।</td></tr>');
       return;
     }
 
@@ -960,10 +832,10 @@ const PortalDashboard = {
     if (!$tbody.length) return;
 
     $tbody.empty();
-    const queue = bills.filter(b => b.status === 'pending_verification' || b.proofImage);
+    const queue = (bills || []).filter(b => b.status === 'pending_verification' || b.proofImage);
 
     if (queue.length === 0) {
-      $tbody.html('<tr><td colspan="6" class="empty-state-notice"><i data-lucide="check-circle" style="width:16px;height:16px;display:inline-block;vertical-align:middle;color:#8cf0a2;"></i> हाल प्रमाणीकरणका लागि कुनै नयाँ भुक्तानी पेन्डिङ छैन।</td></tr>');
+      $tbody.html('<tr><td colspan="5" class="empty-state-notice"><i data-lucide="check-circle" style="width:16px;height:16px;display:inline-block;vertical-align:middle;color:#8cf0a2;"></i> हाल प्रमाणीकरणका लागि कुनै नयाँ भुक्तानी पेन्डिङ छैन।</td></tr>');
       return;
     }
 
@@ -1007,17 +879,70 @@ const PortalDashboard = {
     $select.empty();
     $select.append('<option value="">-- डेरावाला छनौट गर्नुहोस् --</option>');
 
-    tenants.forEach(t => {
+    (tenants || []).forEach(t => {
       $select.append(`<option value="${t.username}" data-rent="${t.floorRent || 15000}" data-floors="${(t.floor || []).join(', ')}">${t.fullName || t.username} (@${t.username})</option>`);
     });
 
     // Auto populate rent when tenant selected
-    $('#bill_tenant_select').on('change', function () {
+    $('#bill_tenant_select').off('change').on('change', function () {
       const selected = $(this).find(':selected');
       const rent = selected.data('rent') || 15000;
       $('#bill_floor_rent').val(rent);
       PortalDashboard.recalculateBillModal();
     });
+  },
+
+  // House Rules Renderers
+  renderOwnerHouseRules: function (rules) {
+    const $container = $('#owner_rules_container');
+    if (!$container.length) return;
+    if (!rules || rules.length === 0) {
+      $container.html('<p class="empty-state-notice">हाल कुनै नियमहरू प्रविष्ट गरिएको छैन। "नियम सम्पादन गर्नुहोस्" बटनबाट नयाँ नियम थप्न सक्नुहुन्छ।</p>');
+      return;
+    }
+    const html = rules.map((r, i) => `${i + 1}. ${r}`).join('<br />');
+    $container.html(html);
+  },
+
+  renderTenantHouseRules: function (rules) {
+    const $container = $('#tenant_rules_container');
+    if (!$container.length) return;
+    if (!rules || rules.length === 0) {
+      $container.html('<p class="empty-state-notice">हाल कुनै नियमहरू प्रविष्ट गरिएको छैन।</p>');
+      return;
+    }
+    const html = rules.map((r, i) => `${i + 1}. ${r}`).join('<br />');
+    $container.html(html);
+  },
+
+  openEditRulesModal: function () {
+    const rules = this.currentHouseRules || [];
+    $('#edit_rules_textarea').val(rules.join('\n'));
+    $('#edit_rules_modal').removeClass('hide');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  },
+
+  submitEditRulesAction: async function () {
+    const text = $('#edit_rules_textarea').val().trim();
+    const rules = text.split('\n').map(l => l.replace(/^\d+[\.\)]\s*/, '').trim()).filter(Boolean);
+
+    if (rules.length === 0) {
+      alert('कृपया कम्तिमा एउटा नियम लेख्नुहोस्।');
+      return;
+    }
+
+    $('#btn_edit_rules_submit').prop('disabled', true).text('सुरक्षित हुँदैछ...');
+    try {
+      await ApiService.updateHouseRules(rules);
+      this.currentHouseRules = rules;
+      this.renderOwnerHouseRules(rules);
+      alert('घरका नियमहरू सफलतापूर्वक अद्यावधिक गरियो!');
+      $('#edit_rules_modal').addClass('hide');
+    } catch (err) {
+      alert(err.message || 'नियम अद्यावधिक गर्दा त्रुटि भयो।');
+    } finally {
+      $('#btn_edit_rules_submit').prop('disabled', false).text('नियम सुरक्षित गर्नुहोस्');
+    }
   },
 
   // ==========================================
@@ -1061,18 +986,11 @@ const PortalDashboard = {
   // Verify Payment Direct API call
   directVerifyPayment: async function (billId, isApproved) {
     try {
-      const res = await ApiService.verifyPayment(billId, isApproved);
-      const newStatus = isApproved ? 'paid via QR' : 'rejected';
-      DataStore.updateBillStatus(billId, newStatus);
+      await ApiService.verifyPayment(billId, isApproved);
       alert(isApproved ? 'भुक्तानी सफलतापूर्वक स्वीकृत भयो (Paid via QR)' : 'भुक्तानी अस्वीकृत गरियो (Payment Rejected)');
       await this.loadOwnerData();
     } catch (err) {
-      console.warn('Verify error:', err);
-      // Fallback local state update
-      const newStatus = isApproved ? 'paid via QR' : 'rejected';
-      DataStore.updateBillStatus(billId, newStatus);
-      alert(isApproved ? 'भुक्तानी स्थिति अद्यावधिक भयो: Paid via QR' : 'भुक्तानी स्थिति अद्यावधिक भयो: Rejected');
-      await this.loadOwnerData();
+      alert(err.message || 'भुक्तानी प्रमाणिकरण गर्दा त्रुटि भयो।');
     }
   },
 
@@ -1115,21 +1033,12 @@ const PortalDashboard = {
 
     try {
       const base64Image = await this.fileToBase64(file);
-      const res = await ApiService.submitProof(bill.id, base64Image);
-
-      DataStore.updateBillProof(bill.id, res.imageUrl || base64Image);
+      await ApiService.submitProof(bill.id, base64Image);
       alert('भुक्तानी प्रमाण सफलतापूर्वक दर्ता भयो! घरधनीले रुजु गरेपछि स्थिति स्वीकृत हुनेछ।');
-
       $('#submit_proof_modal').addClass('hide');
       await this.loadRenteeData();
     } catch (err) {
-      console.warn('Submit proof error:', err);
-      // Fallback convert to local storage
-      const base64Image = await this.fileToBase64(file);
-      DataStore.updateBillProof(bill.id, base64Image);
-      alert('भुक्तानी प्रमाण सुरक्षित रूपमा दर्ता भयो (पेन्डिङ प्रमाणीकरण)।');
-      $('#submit_proof_modal').addClass('hide');
-      await this.loadRenteeData();
+      $('#submit_proof_msg').text(err.message || 'रसिद अपलोड असफल भयो।');
     } finally {
       $('#modal_submit_proof_btn').prop('disabled', false).text('प्रमाण बुझाउनुहोस्');
     }
@@ -1157,9 +1066,7 @@ const PortalDashboard = {
     const password = $('#tenant_input_password').val().trim();
     const fullName = $('#tenant_input_fullname').val().trim();
     const floorRent = Number($('#tenant_input_floorrent').val()) || 15000;
-    const phone = $('#tenant_input_phone').val().trim() || '९८५१XXXXXX';
 
-    // Get selected floor checkboxes or text
     const selectedFloors = [];
     $('input[name="tenant_floors"]:checked').each(function () {
       selectedFloors.push($(this).val());
@@ -1185,16 +1092,11 @@ const PortalDashboard = {
 
     try {
       await ApiService.createTenant(payload);
-      DataStore.saveTenant({ ...payload, phone, status: 'सक्रिय' });
       alert(`नयाँ डेरावाला @${username} सफलतापूर्वक दर्ता गरियो!`);
       $('#create_tenant_modal').addClass('hide');
       await this.loadOwnerData();
     } catch (err) {
-      console.warn('Create tenant error:', err);
-      DataStore.saveTenant({ ...payload, phone, status: 'सक्रिय' });
-      alert(`डेरावाला @${username} स्थानीय लेजरमा दर्ता भयो।`);
-      $('#create_tenant_modal').addClass('hide');
-      await this.loadOwnerData();
+      alert(err.message || 'डेरावाला दर्ता गर्दा त्रुटि भयो।');
     } finally {
       $('#btn_create_tenant_submit').prop('disabled', false).text('डेरावाला दर्ता गर्नुहोस्');
     }
@@ -1222,7 +1124,7 @@ const PortalDashboard = {
     const floorRent = Number($('#bill_floor_rent').val()) || 15000;
 
     // Find previous reading from tenant's latest bill
-    const tenantBills = DataStore.getBillsForTenant(tenantUsername);
+    const tenantBills = (this.currentBills || []).filter(b => b.tenantUsername && b.tenantUsername.toLowerCase() === (tenantUsername || '').toLowerCase());
     const prevReading = tenantBills.length > 0 ? (tenantBills[0].currentMeterReading || 0) : 0;
     $('#bill_previous_reading_display').text(`${prevReading} Units`);
 
@@ -1257,41 +1159,12 @@ const PortalDashboard = {
     $('#btn_generate_bill_submit').prop('disabled', true).text('बिल तयार हुँदैछ...');
 
     try {
-      const res = await ApiService.generateBill(payload);
-      if (res.bill) {
-        DataStore.saveBill(res.bill);
-      }
-      alert(`सफलतापूर्वक नयाँ मासिक बिल जारी गरियो! कुल रकम: रू ${(res.bill ? res.bill.totalAmount : (floorRent + currentMeterReading * ratePerUnit)).toLocaleString()}`);
+      await ApiService.generateBill(payload);
+      alert(`सफलतापूर्वक नयाँ मासिक बिल जारी गरियो!`);
       $('#generate_bill_modal').addClass('hide');
       await this.loadOwnerData();
     } catch (err) {
-      console.warn('Generate bill error:', err);
-      // Fallback create locally
-      const tenantBills = DataStore.getBillsForTenant(tenantUsername);
-      const prevReading = tenantBills.length > 0 ? (tenantBills[0].currentMeterReading || 0) : 0;
-      const unitsConsumed = Math.max(0, currentMeterReading - prevReading);
-      const electricityAmount = unitsConsumed * ratePerUnit;
-      const totalAmount = electricityAmount + floorRent;
-
-      const newBill = {
-        id: `BILL-${Date.now()}`,
-        tenantUsername,
-        floors: ['1st Floor'],
-        previousMeterReading: prevReading,
-        currentMeterReading,
-        unitsConsumed,
-        ratePerUnit,
-        electricityAmount,
-        floorRent,
-        totalAmount,
-        status: 'unpaid',
-        proofImage: null,
-        createdAt: new Date().toISOString()
-      };
-      DataStore.saveBill(newBill);
-      alert(`सफलतापूर्वक नयाँ मासिक बिल जारी भयो! रकम: रू ${totalAmount.toLocaleString()}`);
-      $('#generate_bill_modal').addClass('hide');
-      await this.loadOwnerData();
+      alert(err.message || 'बिल जारी गर्दा त्रुटि भयो।');
     } finally {
       $('#btn_generate_bill_submit').prop('disabled', false).text('मासिक बिल जारी गर्नुहोस्');
     }
@@ -1333,11 +1206,21 @@ const PortalDashboard = {
     return '<span class="badge status-unpaid"><i data-lucide="alert-circle" style="width:12px;height:12px"></i> UNPAID</span>';
   },
 
-  initIncomeAnalyticsChart: function () {
+  initIncomeAnalyticsChart: function (bills) {
     const ctx = document.getElementById('incomeAnalyticsChart');
     if (!ctx) return;
 
     if (this.analyticsChartInstance) this.analyticsChartInstance.destroy();
+
+    const monthlySums = [45000, 48500, 45000, 52000, 45540, 49000];
+    if (bills && bills.length > 0) {
+      const totalCollected = bills
+        .filter(b => b.status === 'paid via QR' || b.status === 'paid')
+        .reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
+      if (totalCollected > 0) {
+        monthlySums[5] = totalCollected;
+      }
+    }
 
     this.analyticsChartInstance = new Chart(ctx, {
       type: 'bar',
@@ -1346,7 +1229,7 @@ const PortalDashboard = {
         datasets: [
           {
             label: 'मासिक आम्दानी संकलन (रू)',
-            data: [45000, 48500, 45000, 52000, 45540, 49000],
+            data: monthlySums,
             backgroundColor: 'rgba(201, 169, 110, 0.4)',
             borderColor: '#c9a96e',
             borderWidth: 1.5,
@@ -1409,6 +1292,7 @@ const PortalDashboard = {
 // Global Exposure for HTML Event Handlers
 window.PortalDashboard = PortalDashboard;
 window.LoginSystem = LoginSystem;
+window.ApiService = ApiService;
 
 $(document).ready(function () {
   if ($('#login_form').length > 0) {
