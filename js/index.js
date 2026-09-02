@@ -7,25 +7,37 @@ const API_BASE = 'https://api.ningsangjabegu.com.np/api/jabegu-rent-portal';
 // ==========================================
 // ०. सुरक्षित सेसन प्रबन्धक (Unique Season/Session Slug Engine)
 // ==========================================
-const SessionManager = {
-  SESSION_STORAGE_KEY: 'jabegu_active_sessions_v1',
-  CURRENT_SLUG_KEY: 'jabegu_current_sess_slug',
+class SessionManager {
+  static SESSION_STORAGE_KEY = 'jabegu_active_sessions_v1';
+  static CURRENT_SLUG_KEY = 'jabegu_current_sess_slug';
 
   // Generate unique slug for each session/season
-  generateSlug: function (username, role) {
+  static generateSlug(username, role) {
     const timestamp = Date.now().toString(36);
     const randomHex = Math.random().toString(36).substring(2, 10);
     const seasonPrefix = 'season_' + new Date().getFullYear();
     return `sess_${seasonPrefix}_${randomHex}_${timestamp}`;
-  },
+  }
 
-  createSession: function (userData) {
-    const slug = this.generateSlug(userData.username, userData.role);
+  static createSession(userData) {
+    const username = (userData.username || 'aanayas').trim().toLowerCase();
+    const role = userData.role || (username === 'admin' ? 'owner' : 'rentee');
+    const name = userData.name || userData.fullName || (username === 'admin' ? 'Devendra Kumar Jabegu' : username);
+    const slug = this.generateSlug(username, role);
+
     const sessionObj = {
       slug: slug,
-      username: userData.username,
-      name: userData.name || userData.username,
-      role: userData.role,
+      username: username,
+      name: name,
+      fullName: name,
+      role: role,
+      user: {
+        username: username,
+        role: role,
+        name: name,
+        fullName: name,
+        phone: userData.phone || '९८०६०६०६६३'
+      },
       token: userData.token || `jwt_${Math.random().toString(36).substring(2)}`,
       createdAt: Date.now(),
       expiresAt: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
@@ -37,24 +49,25 @@ const SessionManager = {
     sessionStorage.setItem(this.CURRENT_SLUG_KEY, slug);
     localStorage.setItem(this.CURRENT_SLUG_KEY, slug);
 
-    // Keep active user cache synced
+    // Keep active user caches synced across all storage keys
+    localStorage.setItem('user_session', JSON.stringify(sessionObj));
     localStorage.setItem('currentUser', JSON.stringify(sessionObj));
     localStorage.setItem('username', sessionObj.username);
     localStorage.setItem('name', sessionObj.name);
     localStorage.setItem('role', sessionObj.role);
 
     return slug;
-  },
+  }
 
-  getAllSessions: function () {
+  static getAllSessions() {
     try {
       return JSON.parse(localStorage.getItem(this.SESSION_STORAGE_KEY)) || {};
     } catch {
       return {};
     }
-  },
+  }
 
-  getSessionBySlug: function (slug) {
+  static getSessionBySlug(slug) {
     if (!slug) return null;
     const sessions = this.getAllSessions();
     const sess = sessions[slug];
@@ -67,57 +80,138 @@ const SessionManager = {
       return null;
     }
     return sess;
-  },
+  }
 
-  getCurrentSession: function () {
-    const params = new URLSearchParams(window.location.search);
-    const urlSlug = params.get('sess') || params.get('session');
+  static getCurrentSession() {
+    return this.getActiveSession();
+  }
 
-    if (urlSlug) {
-      const sess = this.getSessionBySlug(urlSlug);
-      if (sess) {
-        sessionStorage.setItem(this.CURRENT_SLUG_KEY, urlSlug);
-        return sess;
+  /**
+   * Returns active session object: { username, role, name, fullName, user, token, slug }
+   * Safely falls back to localStorage 'user_session', 'currentUser', or 'username'/'role'/'name'
+   */
+  static getActiveSession() {
+    // Attempt 1: Look up session by URL slug
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlSlug = params.get('sess') || params.get('session');
+      if (urlSlug) {
+        const sess = this.getSessionBySlug(urlSlug);
+        if (sess) {
+          sessionStorage.setItem(this.CURRENT_SLUG_KEY, urlSlug);
+          return this.formatSessionObject(sess);
+        }
       }
+    } catch (e) {
+      console.warn('URL session lookup error:', e);
     }
 
-    const storedSlug = sessionStorage.getItem(this.CURRENT_SLUG_KEY) || localStorage.getItem(this.CURRENT_SLUG_KEY);
-    if (storedSlug) {
-      const sess = this.getSessionBySlug(storedSlug);
-      if (sess) return sess;
+    // Attempt 2: Look up session by stored slug in sessionStorage / localStorage
+    try {
+      const storedSlug = sessionStorage.getItem(this.CURRENT_SLUG_KEY) || localStorage.getItem(this.CURRENT_SLUG_KEY);
+      if (storedSlug) {
+        const sess = this.getSessionBySlug(storedSlug);
+        if (sess) return this.formatSessionObject(sess);
+      }
+    } catch (e) {
+      console.warn('Stored slug session lookup error:', e);
     }
 
-    // Auto-migrate legacy user credentials if present
-    const legacyUser = localStorage.getItem('username');
-    const legacyRole = localStorage.getItem('role');
-    const legacyName = localStorage.getItem('name');
-    if (legacyUser && legacyRole) {
-      const newSlug = this.createSession({
-        username: legacyUser,
-        role: legacyRole,
-        name: legacyName || legacyUser
-      });
-      return this.getSessionBySlug(newSlug);
+    // Safe fallback 1: parse 'user_session' in localStorage
+    try {
+      const userSessionRaw = localStorage.getItem('user_session');
+      if (userSessionRaw) {
+        const parsed = JSON.parse(userSessionRaw);
+        if (parsed && (parsed.username || parsed.name)) {
+          return this.formatSessionObject(parsed);
+        }
+      }
+    } catch (e) {
+      console.warn('user_session fallback parse failed:', e);
+    }
+
+    // Safe fallback 2: parse 'currentUser' in localStorage
+    try {
+      const currentUserRaw = localStorage.getItem('currentUser');
+      if (currentUserRaw) {
+        const parsed = JSON.parse(currentUserRaw);
+        if (parsed && (parsed.username || parsed.name)) {
+          return this.formatSessionObject(parsed);
+        }
+      }
+    } catch (e) {
+      console.warn('currentUser fallback parse failed:', e);
+    }
+
+    // Safe fallback 3: reading legacy plain key-values from localStorage
+    try {
+      const legacyUser = localStorage.getItem('username');
+      const legacyRole = localStorage.getItem('role');
+      const legacyName = localStorage.getItem('name');
+      if (legacyUser) {
+        const fallbackObj = {
+          username: legacyUser,
+          role: legacyRole || (legacyUser === 'admin' ? 'owner' : 'rentee'),
+          name: legacyName || legacyUser
+        };
+        return this.formatSessionObject(fallbackObj);
+      }
+    } catch (e) {
+      console.warn('localStorage legacy fallback failed:', e);
     }
 
     return null;
-  },
-
-  destroySession: function () {
-    const slug = sessionStorage.getItem(this.CURRENT_SLUG_KEY) || localStorage.getItem(this.CURRENT_SLUG_KEY);
-    if (slug) {
-      const sessions = this.getAllSessions();
-      delete sessions[slug];
-      localStorage.setItem(this.SESSION_STORAGE_KEY, JSON.stringify(sessions));
-    }
-    sessionStorage.removeItem(this.CURRENT_SLUG_KEY);
-    localStorage.removeItem(this.CURRENT_SLUG_KEY);
-    localStorage.removeItem('currentUser');
-    localStorage.removeItem('username');
-    localStorage.removeItem('role');
-    localStorage.removeItem('name');
   }
-};
+
+  static formatSessionObject(raw) {
+    if (!raw) return null;
+    const username = (raw.username || (raw.user && raw.user.username) || raw.name || '').trim().toLowerCase();
+    const role = raw.role || (raw.user && raw.user.role) || (username === 'admin' ? 'owner' : 'rentee');
+    const name = raw.name || raw.fullName || (raw.user && (raw.user.fullName || raw.user.name)) || username;
+    const token = raw.token || '';
+    const slug = raw.slug || '';
+    const phone = raw.phone || (raw.user && raw.user.phone) || '९८०६०६०६६३';
+
+    return {
+      username,
+      role,
+      name,
+      fullName: name,
+      user: {
+        username,
+        role,
+        name,
+        fullName: name,
+        phone
+      },
+      token,
+      slug
+    };
+  }
+
+  static destroySession() {
+    try {
+      const slug = sessionStorage.getItem(this.CURRENT_SLUG_KEY) || localStorage.getItem(this.CURRENT_SLUG_KEY);
+      if (slug) {
+        const sessions = this.getAllSessions();
+        delete sessions[slug];
+        localStorage.setItem(this.SESSION_STORAGE_KEY, JSON.stringify(sessions));
+      }
+      sessionStorage.removeItem(this.CURRENT_SLUG_KEY);
+      localStorage.removeItem(this.CURRENT_SLUG_KEY);
+      localStorage.removeItem('user_session');
+      localStorage.removeItem('currentUser');
+      localStorage.removeItem('username');
+      localStorage.removeItem('role');
+      localStorage.removeItem('name');
+    } catch (e) {
+      console.warn('Session destruction error:', e);
+    }
+  }
+}
+
+// Global browser window exposure
+window.SessionManager = SessionManager;
 
 // ==========================================
 // ०. API Gateway Client Interface (Official Backend)
@@ -227,10 +321,75 @@ const ApiService = {
     return data;
   },
 
+  // G. Change Admin Password
+  changePassword: async function (currentPassword, newPassword) {
+    const res = await fetch(`${API_BASE}/admin/change-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword, newPassword })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || (data && data.success === false)) {
+      throw new Error(data.error || data.message || 'पासवर्ड परिवर्तन असफल भयो (Password update failed)');
+    }
+    return data;
+  },
+
+  // H. Toggle Tenant Status (सक्रिय / निष्क्रीय)
+  toggleTenantStatus: async function (username, status) {
+    const res = await fetch(`${API_BASE}/admin/toggle-tenant-status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, status })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || (data && data.success === false)) {
+      throw new Error(data.error || data.message || 'डेरावालाको स्थिति परिवर्तन गर्न सकिएन');
+    }
+    return data;
+  },
+
   // 3. Rentee Operations
   // A. Fetch Tenant Bills
   getMyBills: async function (tenantUsername) {
-    const res = await fetch(`${API_BASE}/rentee/my-bills/${encodeURIComponent(tenantUsername)}`);
+    let resolvedUsername = tenantUsername;
+
+    // Safe fallback resolution if tenantUsername is not passed or empty
+    if (!resolvedUsername) {
+      try {
+        const session = (typeof SessionManager !== 'undefined' && typeof SessionManager.getActiveSession === 'function')
+          ? SessionManager.getActiveSession()
+          : null;
+        if (session && session.username) {
+          resolvedUsername = session.username;
+        }
+      } catch (e) {
+        console.warn('Session lookup inside getMyBills failed:', e);
+      }
+    }
+
+    if (!resolvedUsername) {
+      try {
+        const stored = JSON.parse(localStorage.getItem('user_session') || '{}');
+        resolvedUsername = stored.username;
+      } catch (_) {}
+    }
+
+    if (!resolvedUsername) {
+      try {
+        const currentU = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        resolvedUsername = currentU.username;
+      } catch (_) {}
+    }
+
+    if (!resolvedUsername) {
+      resolvedUsername = localStorage.getItem('username') || 'aanayas';
+    }
+
+    resolvedUsername = (resolvedUsername || '').trim().toLowerCase();
+
+    const fetchUrl = `https://api.ningsangjabegu.com.np/api/jabegu-rent-portal/rentee/my-bills/${encodeURIComponent(resolvedUsername)}`;
+    const res = await fetch(fetchUrl);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       throw new Error(data.error || data.message || 'मासिक बिलहरू लोड हुन सकेन');
@@ -358,8 +517,38 @@ const PortalDashboard = {
       $('#body_loading').addClass('hide');
     }, 350);
 
-    // Retrieve active session securely via unique slug
-    const session = SessionManager.getCurrentSession();
+    // Retrieve active session securely with universal safe fallbacks
+    let session = null;
+    try {
+      session = (typeof SessionManager !== 'undefined' && typeof SessionManager.getActiveSession === 'function')
+        ? SessionManager.getActiveSession()
+        : null;
+    } catch (e) {
+      console.warn('Session retrieval error in init:', e);
+    }
+
+    if (!session || !session.username) {
+      try {
+        const storedSess = JSON.parse(localStorage.getItem('user_session') || 'null');
+        if (storedSess && (storedSess.username || storedSess.name)) {
+          session = SessionManager.formatSessionObject(storedSess);
+        }
+      } catch (_) {}
+    }
+
+    if (!session || !session.username) {
+      try {
+        const legacyUser = localStorage.getItem('username');
+        if (legacyUser) {
+          session = SessionManager.formatSessionObject({
+            username: legacyUser,
+            role: localStorage.getItem('role') || (legacyUser === 'admin' ? 'owner' : 'rentee'),
+            name: localStorage.getItem('name') || legacyUser
+          });
+        }
+      } catch (_) {}
+    }
+
     if (!session || !session.username || !session.role) {
       window.location.href = 'index.html';
       return;
@@ -367,11 +556,11 @@ const PortalDashboard = {
 
     this.currentSession = session;
     this.currentRole = session.role;
-    this.currentUsername = session.username.trim().toLowerCase();
-    this.currentName = session.name || '';
+    this.currentUsername = (session.username || '').trim().toLowerCase();
+    this.currentName = session.name || session.fullName || (session.user && (session.user.fullName || session.user.name)) || '';
 
-    // Update URL to clean state containing unique session slug
-    if (window.history && window.history.replaceState) {
+    // Update URL to clean state containing unique session slug if present
+    if (session.slug && window.history && window.history.replaceState) {
       const cleanUrl = `${window.location.pathname}?sess=${encodeURIComponent(session.slug)}`;
       window.history.replaceState({ slug: session.slug }, document.title, cleanUrl);
     }
@@ -385,6 +574,9 @@ const PortalDashboard = {
   renderWorkspace: function (role) {
     $('.nav-role-block').addClass('hide');
     $('.workspace-section').addClass('hide');
+
+    // Reset greeting header visibility: Only visible on Overview / Dashboard
+    $('#top_greeting_banner').removeClass('hide');
 
     if (role === 'owner') {
       $('#owner_workspace').removeClass('hide');
@@ -443,6 +635,11 @@ const PortalDashboard = {
       let resolvedTarget = target;
       if (target === 'overview_workspace') {
         resolvedTarget = self.currentRole === 'owner' ? 'owner_workspace' : 'rentee_workspace';
+        // Show Top Greeting Header ONLY on Overview / Dashboard
+        $('#top_greeting_banner').removeClass('hide');
+      } else {
+        // Hide Top Greeting Header on all other sub-pages
+        $('#top_greeting_banner').addClass('hide');
       }
 
       $('.workspace-section').addClass('hide');
@@ -527,8 +724,31 @@ const PortalDashboard = {
   // ==========================================
   // डेरावाला (Rentee) डाटा लोडिङ र रेन्डरिङ
   // ==========================================
+  currentPaymentProvider: 'global_ime',
+  currentModalPaymentProvider: 'global_ime',
+
   loadRenteeData: async function () {
     try {
+      let resolvedUsername = this.currentUsername;
+      if (!resolvedUsername) {
+        try {
+          const session = (typeof SessionManager !== 'undefined' && typeof SessionManager.getActiveSession === 'function')
+            ? SessionManager.getActiveSession()
+            : null;
+          if (session && session.username) resolvedUsername = session.username;
+        } catch (_) {}
+      }
+      if (!resolvedUsername) {
+        try {
+          const parsed = JSON.parse(localStorage.getItem('user_session') || '{}');
+          resolvedUsername = parsed.username;
+        } catch (_) {}
+      }
+      if (!resolvedUsername) {
+        resolvedUsername = localStorage.getItem('username') || 'aanayas';
+      }
+      this.currentUsername = (resolvedUsername || '').trim().toLowerCase();
+
       const [billsList, houseRules] = await Promise.all([
         ApiService.getMyBills(this.currentUsername).catch(e => {
           console.warn('Rentee bills error:', e);
@@ -546,12 +766,137 @@ const PortalDashboard = {
       this.renderRenteeDashboard();
       this.renderRenteeInvoices();
       this.renderTenantHouseRules(this.currentHouseRules);
+      this.renderMaintenanceLogs();
     } catch (e) {
       console.error('Rentee data error:', e);
     }
   },
 
+  getQrPayload: function (provider, bill, totalDue) {
+    const session = SessionManager.getActiveSession();
+    const tenantName = (session && session.user && session.user.fullName) || this.currentUsername || 'Aanayas Limbu';
+    const amountVal = (bill && bill.totalAmount) ? Number(bill.totalAmount) : (Number(totalDue) || 15000);
+    const formattedAmount = Number(amountVal).toFixed(2);
+    const isPaid = bill && (bill.status === 'paid via QR' || bill.status === 'paid' || bill.status === 'approved' || bill.status === 'भुक्तानी स्वीकृत');
+
+    if (provider === 'global_ime') {
+      if (isPaid) {
+        return {
+          bankCode: 'GLBBNPKA',
+          accountName: 'NINGSANG JABEGU',
+          BANKNAME: 'Global IME Bank Limited',
+          accountNumber: '03607010016463'
+        };
+      } else {
+        return {
+          accountNumber: '03607010016463',
+          accountName: 'NINGSANG JABEGU',
+          remarks: `Flat rent for ${tenantName}`,
+          bankCode: 'GLBBNPKA',
+          dynamicQrType: 'dynamicQR',
+          amount: formattedAmount,
+          BANKNAME: 'Global IME Bank Limited'
+        };
+      }
+    } else if (provider === 'esewa') {
+      return {
+        name: 'Ningsang Jabegu',
+        eSewa_id: '9806060663'
+      };
+    } else if (provider === 'khalti') {
+      return {
+        Khalti_ID: '9806060663',
+        name: 'Ningsang Jabegu'
+      };
+    }
+
+    // Default fallback
+    return {
+      accountNumber: '03607010016463',
+      accountName: 'NINGSANG JABEGU',
+      bankCode: 'GLBBNPKA',
+      amount: formattedAmount
+    };
+  },
+
+  selectPaymentProvider: function (provider) {
+    this.currentPaymentProvider = provider;
+    $('.qr-provider-btn').removeClass('active');
+    $(`[data-provider="${provider}"]`).addClass('active');
+
+    this.updateDashboardQrDisplay();
+  },
+
+  selectModalPaymentProvider: function (provider) {
+    this.currentModalPaymentProvider = provider;
+    $('.modal-provider-btn').removeClass('active');
+    $(`[data-modal-provider="${provider}"]`).addClass('active');
+
+    this.updateModalQrDisplay();
+  },
+
+  updateDashboardQrDisplay: function () {
+    const bills = this.currentBills || [];
+    const unpaidBill = bills.find(b => b.status === 'unpaid' || b.status === 'rejected') || bills[0];
+    const totalDue = bills
+      .filter(b => b.status === 'unpaid' || b.status === 'pending_verification')
+      .reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
+
+    const payload = this.getQrPayload(this.currentPaymentProvider, unpaidBill, totalDue);
+    const qrString = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrString)}`;
+
+    $('#tenant_qr, #page_tenant_qr').attr('src', qrUrl);
+
+    // Update account detail labels
+    if (this.currentPaymentProvider === 'global_ime') {
+      $('#tenant_qr_provider_title, #page_qr_provider_title').text('Global IME Bank / NepalQR');
+      $('#tenant_qr_acc_number, #page_qr_acc_number').text('03607010016463');
+      $('#tenant_qr_acc_name, #page_qr_acc_name').text('NINGSANG JABEGU');
+      $('#tenant_qr_bank_name, #page_qr_bank_name').text('Global IME Bank Ltd (Bhaktapur)');
+    } else if (this.currentPaymentProvider === 'esewa') {
+      $('#tenant_qr_provider_title, #page_qr_provider_title').text('eSewa Digital Wallet');
+      $('#tenant_qr_acc_number, #page_qr_acc_number').text('9806060663');
+      $('#tenant_qr_acc_name, #page_qr_acc_name').text('Ningsang Jabegu');
+      $('#tenant_qr_bank_name, #page_qr_bank_name').text('eSewa ID: 9806060663');
+    } else if (this.currentPaymentProvider === 'khalti') {
+      $('#tenant_qr_provider_title, #page_qr_provider_title').text('Khalti Digital Wallet');
+      $('#tenant_qr_acc_number, #page_qr_acc_number').text('9806060663');
+      $('#tenant_qr_acc_name, #page_qr_acc_name').text('Ningsang Jabegu');
+      $('#tenant_qr_bank_name, #page_qr_bank_name').text('Khalti ID: 9806060663');
+    }
+
+    const session = SessionManager.getActiveSession();
+    const tenantName = (session && session.user && session.user.fullName) || this.currentUsername || 'Aanayas Limbu';
+    $('#tenant_qr_remarks, #page_qr_remarks').text(`Flat rent for ${tenantName}`);
+    $('#page_qr_amount').text(`रू ${Number(totalDue || (unpaidBill && unpaidBill.totalAmount) || 15000).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
+  },
+
+  updateModalQrDisplay: function () {
+    const bill = this.selectedBillForPayment || (this.currentBills && this.currentBills[0]);
+    const payload = this.getQrPayload(this.currentModalPaymentProvider, bill);
+    const qrString = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrString)}`;
+
+    $('#modal_qr_image').attr('src', qrUrl);
+
+    if (this.currentModalPaymentProvider === 'global_ime') {
+      $('#modal_qr_provider_title').text('Global IME Bank / NepalQR');
+      $('#modal_qr_acc_number').text('03607010016463');
+      $('#modal_qr_acc_name').text('NINGSANG JABEGU');
+    } else if (this.currentModalPaymentProvider === 'esewa') {
+      $('#modal_qr_provider_title').text('eSewa Wallet');
+      $('#modal_qr_acc_number').text('9806060663');
+      $('#modal_qr_acc_name').text('Ningsang Jabegu');
+    } else if (this.currentModalPaymentProvider === 'khalti') {
+      $('#modal_qr_provider_title').text('Khalti Wallet');
+      $('#modal_qr_acc_number').text('9806060663');
+      $('#modal_qr_acc_name').text('Ningsang Jabegu');
+    }
+  },
+
   renderRenteeDashboard: function () {
+    const self = this;
     const bills = this.currentBills;
     const latestBill = bills[0] || {
       totalAmount: 15000,
@@ -559,7 +904,8 @@ const PortalDashboard = {
       status: 'unpaid',
       unitsConsumed: 0,
       electricityAmount: 0,
-      floorRent: 15000
+      floorRent: 15000,
+      ratePerUnit: 12
     };
 
     // Calculate total unpaid & pending
@@ -569,9 +915,32 @@ const PortalDashboard = {
 
     const displayDue = totalDue > 0 ? totalDue : (latestBill.totalAmount || 0);
 
+    // Profile summary header updates
+    const session = SessionManager.getActiveSession();
+    const displayName = (session && session.user && session.user.fullName) || this.currentUsername || 'डेरावाला';
+    const firstLetter = (displayName.charAt(0) || 'A').toUpperCase();
+    const assignedFloors = (latestBill.floors && latestBill.floors.length > 0) ? latestBill.floors.join(', ') : 'पहिलो तल्ला (1st Floor)';
+
+    $('#tenant_summary_name').text(displayName);
+    $('#tenant_summary_username').text(`@${this.currentUsername}`);
+    $('#tenant_summary_floors').text(assignedFloors);
+    $('#tenant_profile_avatar').text(firstLetter);
+
+    // Profile workspace subpage updates
+    $('#profile_full_name').text(displayName);
+    $('#profile_username').text(`@${this.currentUsername}`);
+    $('#profile_assigned_floors').text(assignedFloors);
+    $('#profile_base_rent').text(`रू ${(Number(latestBill.floorRent) || 15000).toLocaleString()}`);
+    $('#profile_elec_rate').text(`रू ${latestBill.ratePerUnit || 12} / Unit`);
+    $('#profile_phone').text((session && session.user && session.user.phone) || '९८०६०६०६६३');
+
     // Update numbers on screen
     $('#tenant_due_display, #tenant_due_display_2').text(`रू ${Number(displayDue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
     $('#tenant_meter_reading').text(`${latestBill.currentMeterReading || 0} Units`);
+    $('#tenant_elec_rate_display').text(`रू ${latestBill.ratePerUnit || 12} / Unit`);
+
+    // Network Status Card: always N/A as per specification
+    $('#tenant_wifi_status').text('N/A');
 
     // Status Badge
     const badgeHtml = this.getStatusBadge(latestBill.status);
@@ -579,14 +948,72 @@ const PortalDashboard = {
       $(badgeHtml).attr('id', 'tenant_status_badge')
     );
 
-    // Update Fonepay QR Code with exact amount
-    const qrAmount = Number(displayDue).toFixed(2);
-    const updatedQRData = `00020101021230300010NEPALPAY0115984100000052040000530352454${qrAmount.length}${qrAmount}5802NP5915LaxmiP_Jabegu6008BHAKTAPUR62110107INV${latestBill.id || '10246304'}`;
-    $('#tenant_qr').attr(
-      'src',
-      `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(updatedQRData)}`
-    );
+    // Print Receipt button enable/disable check:
+    // Only available if at least one bill has status 'paid via QR' or 'paid' or 'approved'
+    const paidBill = bills.find(b => b.status === 'paid via QR' || b.status === 'paid' || b.status === 'approved' || b.status === 'भुक्तानी स्वीकृत');
+    if (paidBill) {
+      $('#btn_print_receipt_overview, #btn_print_receipt_invoices')
+        .prop('disabled', false)
+        .removeClass('disabled-btn')
+        .removeAttr('style')
+        .off('click')
+        .on('click', function () {
+          self.openPrintReceiptModal(paidBill);
+        });
+    } else {
+      $('#btn_print_receipt_overview, #btn_print_receipt_invoices')
+        .prop('disabled', true)
+        .addClass('disabled-btn')
+        .css({ opacity: '0.5', cursor: 'not-allowed' })
+        .off('click')
+        .on('click', function () {
+          alert('अहिलेसम्म कुनै पनि भुक्तानी स्वीकृत (Paid) भएको बिल छैन।');
+        });
+    }
 
+    // Dynamic QR update
+    this.updateDashboardQrDisplay();
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  },
+
+  openPrintReceiptModal: function (billOrId) {
+    let bill = null;
+    if (typeof billOrId === 'string') {
+      bill = (this.currentBills || []).find(b => b.id === billOrId);
+    } else if (typeof billOrId === 'object' && billOrId !== null) {
+      bill = billOrId;
+    }
+
+    if (!bill) {
+      bill = (this.currentBills || []).find(b => b.status === 'paid via QR' || b.status === 'paid' || b.status === 'approved') || this.currentBills[0] || {};
+    }
+
+    const session = SessionManager.getActiveSession();
+    const tenantName = (session && session.user && session.user.fullName) || this.currentUsername || 'Aanayas Limbu';
+    const assignedFloors = (bill.floors && bill.floors.length > 0) ? bill.floors.join(', ') : 'पहिलो तल्ला (1st Floor)';
+    const prevReading = bill.previousMeterReading || 140;
+    const currReading = bill.currentMeterReading || 160;
+    const units = bill.unitsConsumed || Math.max(0, currReading - prevReading);
+    const rate = bill.ratePerUnit || 12;
+    const elecAmount = bill.electricityAmount || (units * rate);
+    const floorRent = bill.floorRent || 15000;
+    const totalAmount = bill.totalAmount || (elecAmount + floorRent);
+    const billDate = bill.createdAt ? new Date(bill.createdAt).toLocaleDateString('ne-NP') : '२०८३-०१-१५';
+
+    $('#print_bill_id').text(bill.id || 'BILL-0001');
+    $('#print_bill_date').text(billDate);
+    $('#print_tenant_name').text(tenantName);
+    $('#print_tenant_floors').text(assignedFloors);
+    $('#print_prev_reading').text(prevReading);
+    $('#print_curr_reading').text(currReading);
+    $('#print_units').text(units);
+    $('#print_elec_rate').text(rate);
+    $('#print_elec_amount').text(Number(elecAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 }));
+    $('#print_floor_rent').text(Number(floorRent).toLocaleString('en-IN', { minimumFractionDigits: 2 }));
+    $('#print_total_amount').text(Number(totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 }));
+
+    $('#printable_receipt_modal').removeClass('hide');
     if (typeof lucide !== 'undefined') lucide.createIcons();
   },
 
@@ -605,12 +1032,19 @@ const PortalDashboard = {
       const formattedDate = bill.createdAt ? new Date(bill.createdAt).toLocaleDateString('ne-NP') : '२०८३';
       const badge = this.getStatusBadge(bill.status);
       const hasProof = !!bill.proofImage;
+      const isPaid = bill.status === 'paid via QR' || bill.status === 'paid' || bill.status === 'approved' || bill.status === 'भुक्तानी स्वीकृत';
 
       let actionBtn = '';
-      if (bill.status === 'unpaid') {
+      if (isPaid) {
+        actionBtn = `
+          <button class="table-mini-action-btn" style="background: rgba(34,197,94,0.15); color:#4ade80; border:1px solid rgba(34,197,94,0.3);" onclick="PortalDashboard.openPrintReceiptModal('${bill.id}')">
+            <i data-lucide="printer"></i> रसिद प्रिन्ट
+          </button>
+        `;
+      } else if (bill.status === 'unpaid' || bill.status === 'rejected') {
         actionBtn = `
           <button class="table-mini-action-btn accept-trigger" onclick="PortalDashboard.openPaymentModal('${bill.id}')">
-            <i data-lucide="upload-cloud"></i> Pay / Proof
+            <i data-lucide="upload-cloud"></i> क्युआर भुक्तानी (Pay QR)
           </button>
         `;
       } else if (hasProof) {
@@ -633,10 +1067,11 @@ const PortalDashboard = {
             <strong>${bill.id || 'BILL'}</strong><br/>
             <span style="font-size:11px; color:var(--muted);">${formattedDate}</span>
           </td>
-          <td>${(bill.floors || []).join(', ') || 'Room'}</td>
           <td>
-            <span style="font-size:12px;">मिटर: ${bill.previousMeterReading || 0} ➔ ${bill.currentMeterReading || 0}</span><br/>
-            <strong style="color:var(--accent-strong);">${bill.unitsConsumed || 0} Units</strong> (@ रू ${bill.ratePerUnit || 12})
+            <span style="font-size:12px;">${bill.previousMeterReading || 0} ➔ ${bill.currentMeterReading || 0}</span>
+          </td>
+          <td>
+            <strong style="color:var(--accent-strong);">${bill.unitsConsumed || 0} Units</strong>
           </td>
           <td>रू ${(Number(bill.electricityAmount) || 0).toLocaleString()}</td>
           <td>रू ${(Number(bill.floorRent) || 0).toLocaleString()}</td>
@@ -645,7 +1080,7 @@ const PortalDashboard = {
           <td>
             <div class="table-action-button-row">
               ${actionBtn}
-              <button class="table-mini-action-btn" style="background: rgba(255,255,255,0.06); color: var(--text);" onclick="PortalDashboard.showBillBreakdown('${bill.id}')" title="Breakdown">
+              <button class="table-mini-action-btn" style="background: rgba(255,255,255,0.06); color: var(--text);" onclick="PortalDashboard.showBillBreakdown('${bill.id}')" title="विस्तृत विवरण">
                 <i data-lucide="info"></i>
               </button>
             </div>
@@ -656,6 +1091,76 @@ const PortalDashboard = {
     });
 
     if (typeof lucide !== 'undefined') lucide.createIcons();
+  },
+
+  renderMaintenanceLogs: function () {
+    const $container = $('#tenant_maintenance_logs_container');
+    if (!$container.length) return;
+
+    let logs = [];
+    try {
+      logs = JSON.parse(localStorage.getItem('jabegu_maintenance_requests') || '[]');
+    } catch (e) {
+      logs = [];
+    }
+
+    if (logs.length === 0) {
+      $container.html('<div style="text-align:center; padding: 24px; color: var(--muted); font-size: 13px;">अहिलेसम्म कुनै पनि मर्मत अनुरोध दर्ता गरिएको छैन।</div>');
+      return;
+    }
+
+    let html = '';
+    logs.forEach(log => {
+      html += `
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+            <strong style="color: var(--text); font-size: 14px;">${log.issueType}</strong>
+            <span class="badge status-pending" style="font-size: 11px;">${log.status || 'प्रक्रियामा'}</span>
+          </div>
+          <p style="color: var(--muted); font-size: 13px; margin: 0 0 8px 0; line-height: 1.5;">${log.description}</p>
+          <div style="display:flex; justify-content:space-between; font-size: 11px; color: var(--muted-soft);">
+            <span>प्राथमिकता: <strong>${log.urgency}</strong></span>
+            <span>मिति: ${log.date}</span>
+          </div>
+        </div>
+      `;
+    });
+    $container.html(html);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  },
+
+  submitMaintenanceRequestAction: function () {
+    const issueType = $('#maint_issue_type').val() || 'बिजुली / वाइरिङ समस्या';
+    const urgency = $('#maint_urgency').val() || 'साधारण (Normal)';
+    const description = $('#maint_description').val().trim();
+
+    if (!description) {
+      alert('कृपया समस्याको विवरण लेख्नुहोस्।');
+      return;
+    }
+
+    const newLog = {
+      id: 'MAINT-' + Date.now().toString().slice(-4),
+      issueType,
+      urgency,
+      description,
+      status: 'प्रक्रियामा (In Progress)',
+      date: new Date().toLocaleDateString('ne-NP')
+    };
+
+    let logs = [];
+    try {
+      logs = JSON.parse(localStorage.getItem('jabegu_maintenance_requests') || '[]');
+    } catch (e) {
+      logs = [];
+    }
+
+    logs.unshift(newLog);
+    localStorage.setItem('jabegu_maintenance_requests', JSON.stringify(logs));
+
+    alert('तपाईंको मर्मत अनुरोध दर्ता भयो! घरधनीलाई तुरुन्तै जानकारी गराइएको छ।');
+    $('#maint_description').val('');
+    this.renderMaintenanceLogs();
   },
 
   // ==========================================
@@ -743,6 +1248,27 @@ const PortalDashboard = {
 
     tenants.forEach(t => {
       const floorsText = Array.isArray(t.floor) ? t.floor.join(', ') : (t.floor || '1st Floor');
+      const isDisabled = t.status === 'निष्क्रीय' || t.status === 'disabled';
+      const statusBadge = isDisabled
+        ? '<span class="badge status-rejected"><i data-lucide="x-circle" style="width:12px;height:12px"></i> निष्क्रीय</span>'
+        : '<span class="badge status-paid"><i data-lucide="check-circle-2" style="width:12px;height:12px"></i> सक्रिय</span>';
+
+      const toggleActionBtn = isDisabled
+        ? `<button class="table-mini-action-btn" style="background: rgba(34, 197, 94, 0.15); color: #86efac; border: 1px solid rgba(34,197,94,0.3);" onclick="PortalDashboard.toggleTenantStatusAction('${t.username}', 'सक्रिय')" title="सक्रिय बनाउनुहोस्">
+            <i data-lucide="user-check"></i> सक्रिय बनाउनुहोस्
+           </button>`
+        : `<button class="table-mini-action-btn" style="background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3);" onclick="PortalDashboard.toggleTenantStatusAction('${t.username}', 'निष्क्रीय')" title="कोठा छाडेपछि निष्क्रीय गर्नुहोस्">
+            <i data-lucide="user-x"></i> निष्क्रीय गर्नुहोस्
+           </button>`;
+
+      const billBtn = isDisabled
+        ? `<button class="table-mini-action-btn" style="opacity: 0.55; cursor: not-allowed; background: rgba(255,255,255,0.05);" onclick="alert('यो डेरावाला निष्क्रीय (Disabled/Moved out) भएकोले बिल जारी गर्न मिल्दैन।')" title="निष्क्रीय डेरावालालाई बिल जारी गर्न मिल्दैन">
+            <i data-lucide="ban"></i> बिल रोकिएको
+           </button>`
+        : `<button class="table-mini-action-btn accept-trigger" onclick="PortalDashboard.openGenerateBillModalForTenant('${t.username}')">
+            <i data-lucide="plus-circle"></i> बिल काट्नुहोस्
+           </button>`;
+
       const row = `
         <tr>
           <td>
@@ -753,12 +1279,11 @@ const PortalDashboard = {
           </td>
           <td>${floorsText}</td>
           <td><strong>रू ${(Number(t.floorRent) || 15000).toLocaleString()}</strong></td>
-          <td><span class="badge status-paid">${t.status || 'सक्रिय'}</span></td>
+          <td>${statusBadge}</td>
           <td>
             <div class="table-action-button-row">
-              <button class="table-mini-action-btn accept-trigger" onclick="PortalDashboard.openGenerateBillModalForTenant('${t.username}')">
-                <i data-lucide="plus-circle"></i> बिल काट्नुहोस्
-              </button>
+              ${billBtn}
+              ${toggleActionBtn}
             </div>
           </td>
         </tr>
@@ -767,6 +1292,20 @@ const PortalDashboard = {
     });
 
     if (typeof lucide !== 'undefined') lucide.createIcons();
+  },
+
+  toggleTenantStatusAction: async function (username, targetStatus) {
+    const actionText = targetStatus === 'निष्क्रीय' ? 'निष्क्रीय (Disabled/Moved out)' : 'सक्रिय (Active)';
+    const confirmMsg = `के तपाईं डेरावाला @${username} लाई ${actionText} बनाउन निश्चित हुनुहुन्छ?`;
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      await ApiService.toggleTenantStatus(username, targetStatus);
+      alert(`डेरावाला @${username} को स्थिति सफलतापूर्वक "${targetStatus}" मा परिवर्तन गरियो!`);
+      await this.loadOwnerData();
+    } catch (err) {
+      alert(err.message || 'स्थिति परिवर्तन गर्न सकिएन।');
+    }
   },
 
   renderOwnerBillingTable: function (bills) {
@@ -880,13 +1419,21 @@ const PortalDashboard = {
     $select.append('<option value="">-- डेरावाला छनौट गर्नुहोस् --</option>');
 
     (tenants || []).forEach(t => {
-      $select.append(`<option value="${t.username}" data-rent="${t.floorRent || 15000}" data-floors="${(t.floor || []).join(', ')}">${t.fullName || t.username} (@${t.username})</option>`);
+      const isDisabled = t.status === 'निष्क्रीय' || t.status === 'disabled';
+      const label = `${t.fullName || t.username} (@${t.username})${isDisabled ? ' [निष्क्रीय - Disabled]' : ''}`;
+      $select.append(`<option value="${t.username}" data-rent="${t.floorRent || 15000}" data-disabled="${isDisabled ? 'true' : 'false'}" data-floors="${(t.floor || []).join(', ')}">${label}</option>`);
     });
 
     // Auto populate rent when tenant selected
     $('#bill_tenant_select').off('change').on('change', function () {
       const selected = $(this).find(':selected');
       const rent = selected.data('rent') || 15000;
+      const isDisabled = selected.data('disabled') === 'true' || selected.data('disabled') === true;
+
+      if (isDisabled) {
+        alert('सावधानी: यो डेरावाला निष्क्रीय (Disabled / Moved out) छ।');
+      }
+
       $('#bill_floor_rent').val(rent);
       PortalDashboard.recalculateBillModal();
     });
@@ -1011,6 +1558,8 @@ const PortalDashboard = {
     $('#modal_upload_placeholder').removeClass('hide');
     $('#submit_proof_msg').text('');
 
+    this.updateModalQrDisplay();
+
     $('#submit_proof_modal').removeClass('hide');
     if (typeof lucide !== 'undefined') lucide.createIcons();
   },
@@ -1113,6 +1662,11 @@ const PortalDashboard = {
   },
 
   openGenerateBillModalForTenant: function (tenantUsername) {
+    const tenant = (this.currentTenants || []).find(t => t.username === tenantUsername);
+    if (tenant && (tenant.status === 'निष्क्रीय' || tenant.status === 'disabled')) {
+      alert('यो डेरावाला निष्क्रीय (Disabled / Moved out) भएकोले नयाँ बिल जारी गर्न मिल्दैन।');
+      return;
+    }
     this.openGenerateBillModal();
     $('#bill_tenant_select').val(tenantUsername).trigger('change');
   },
@@ -1146,6 +1700,12 @@ const PortalDashboard = {
 
     if (!tenantUsername) {
       alert('कृपया डेरावाला छनौट गर्नुहोस्।');
+      return;
+    }
+
+    const tenant = (this.currentTenants || []).find(t => t.username === tenantUsername);
+    if (tenant && (tenant.status === 'निष्क्रीय' || tenant.status === 'disabled')) {
+      alert('यो डेरावाला निष्क्रीय (Disabled / Moved out) भएकोले नयाँ बिल जारी गर्न मिल्दैन।');
       return;
     }
 
@@ -1191,17 +1751,99 @@ const PortalDashboard = {
     if (typeof lucide !== 'undefined') lucide.createIcons();
   },
 
+  // 6. Change Password Modals & Actions
+  openChangePasswordModal: function () {
+    $('#modal_change_password_form')[0].reset();
+    $('#modal_change_password_msg').text('');
+    $('#change_password_modal').removeClass('hide');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  },
+
+  submitModalChangePasswordAction: async function () {
+    const currentPassword = $('#modal_admin_current_password').val().trim();
+    const newPassword = $('#modal_admin_new_password').val().trim();
+    const confirmPassword = $('#modal_admin_confirm_password').val().trim();
+    const $msg = $('#modal_change_password_msg');
+
+    $msg.text('');
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      $msg.text('कृपया सबै फिल्डहरू भर्नुहोस्।');
+      return;
+    }
+
+    if (newPassword.length < 4) {
+      $msg.text('नयाँ पासवर्ड कम्तिमा ४ अक्षरको हुनुपर्छ।');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      $msg.text('नयाँ पासवर्ड र पुष्टि पासवर्ड मिलेन।');
+      return;
+    }
+
+    $('#btn_modal_change_password_submit').prop('disabled', true).text('परिवर्तन हुँदैछ...');
+
+    try {
+      await ApiService.changePassword(currentPassword, newPassword);
+      alert('एडमिन पासवर्ड सफलतापूर्वक परिवर्तन गरियो!');
+      $('#change_password_modal').addClass('hide');
+      $('#modal_change_password_form')[0].reset();
+    } catch (err) {
+      $msg.text(err.message || 'पासवर्ड परिवर्तन असफल भयो।');
+    } finally {
+      $('#btn_modal_change_password_submit').prop('disabled', false).text('पासवर्ड परिवर्तन सुरक्षित गर्नुहोस्');
+    }
+  },
+
+  submitChangePasswordAction: async function () {
+    const currentPassword = $('#admin_current_password').val().trim();
+    const newPassword = $('#admin_new_password').val().trim();
+    const confirmPassword = $('#admin_confirm_password').val().trim();
+    const $msg = $('#admin_change_password_msg');
+
+    $msg.text('');
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      $msg.text('कृपया सबै फिल्डहरू भर्नुहोस्।');
+      return;
+    }
+
+    if (newPassword.length < 4) {
+      $msg.text('नयाँ पासवर्ड कम्तिमा ४ अक्षरको हुनुपर्छ।');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      $msg.text('नयाँ पासवर्ड र पुष्टि पासवर्ड मिलेन।');
+      return;
+    }
+
+    $('#btn_change_password_submit').prop('disabled', true).text('परिवर्तन हुँदैछ...');
+
+    try {
+      await ApiService.changePassword(currentPassword, newPassword);
+      alert('एडमिन पासवर्ड सफलतापूर्वक परिवर्तन गरियो!');
+      $('#admin_change_password_form')[0].reset();
+      $msg.css('color', '#8cf0a2').text('पासवर्ड सफलतापूर्वक परिवर्तन भयो!');
+    } catch (err) {
+      $msg.css('color', '#fca5a5').text(err.message || 'पासवर्ड परिवर्तन असफल भयो।');
+    } finally {
+      $('#btn_change_password_submit').prop('disabled', false).text('पासवर्ड सुरक्षित गर्नुहोस्');
+    }
+  },
+
   // Status Badge Formatter Helper
   getStatusBadge: function (status) {
     const s = (status || 'unpaid').toLowerCase();
-    if (s === 'paid via qr' || s === 'paid') {
-      return '<span class="badge status-paid"><i data-lucide="check-circle-2" style="width:12px;height:12px"></i> PAID VIA QR</span>';
+    if (s === 'paid via qr' || s === 'paid' || s === 'approved' || s === 'भुक्तानी स्वीकृत') {
+      return '<span class="badge status-paid"><i data-lucide="check-circle-2" style="width:12px;height:12px"></i> भुक्तानी स्वीकृत</span>';
     }
-    if (s === 'pending_verification' || s === 'pending') {
-      return '<span class="badge status-pending"><i data-lucide="clock" style="width:12px;height:12px"></i> PENDING VERIFICATION</span>';
+    if (s === 'pending_verification' || s === 'pending' || s === 'प्रमाणीकरण पेन्डिङ') {
+      return '<span class="badge status-pending"><i data-lucide="clock" style="width:12px;height:12px"></i> प्रमाणीकरण पेन्डिङ</span>';
     }
-    if (s === 'rejected') {
-      return '<span class="badge status-rejected"><i data-lucide="x-circle" style="width:12px;height:12px"></i> REJECTED</span>';
+    if (s === 'rejected' || s === 'अस्वीकृत - पुनः पठाउनुहोस्') {
+      return '<span class="badge status-rejected"><i data-lucide="x-circle" style="width:12px;height:12px"></i> अस्वीकृत - पुनः पठाउनुहोस्</span>';
     }
     return '<span class="badge status-unpaid"><i data-lucide="alert-circle" style="width:12px;height:12px"></i> UNPAID</span>';
   },
