@@ -276,6 +276,9 @@
                   <h3 class="card-main-number text-alert" id="tenant_due_display">
                     रू ०.००
                   </h3>
+                  <div id="tenant_due_breakdown" style="font-size: 13px; font-weight: 600; color: #94a3b8; margin: 3px 0 2px 0; letter-spacing: 0.3px;">
+                    (० + ०)
+                  </div>
                   <span class="card-meta-desc" id="tenant_due_meta_desc">मासिक भाडा + बिजुली बिल</span>
                 </div>
               </div>
@@ -317,6 +320,7 @@
                   <h3 class="card-main-number" id="tenant_meter_reading">
                     ० Units
                   </h3>
+                  <div id="tenant_meter_breakdown" class="hide" style="font-size: 13px; color: var(--accent); font-weight: 600; margin-top: 2px;"></div>
                   <span class="card-meta-desc">Last Meter Reading</span>
                 </div>
               </div>
@@ -332,6 +336,84 @@
                     N/A
                   </h3>
                   <span class="card-meta-desc">N/A</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step-by-Step Payment Guide Section -->
+            <div class="content-glass-card full-width-span" style="margin-bottom: 24px; border: 1px solid rgba(59, 130, 246, 0.25); background: linear-gradient(135deg, rgba(30, 58, 138, 0.12) 0%, rgba(15, 23, 42, 0.4) 100%);">
+              <div class="card-header-inline" style="margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(59, 130, 246, 0.2); display: flex; align-items: center; justify-content: center; color: #60a5fa;">
+                    <i data-lucide="help-circle" style="width: 18px; height: 18px;"></i>
+                  </div>
+                  <div>
+                    <h4 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--text);">
+                      यस प्रणालीबाट भुक्तानी कसरी गर्ने? (Step-by-Step Payment Guide)
+                    </h4>
+                    <span style="font-size: 12px; color: var(--muted);">५ सरल चरणहरूमा आफ्नो मासिक भाडा तथा बिजुली महसुल चुक्ता गर्नुहोस्</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="modern-secondary-btn"
+                  style="padding: 6px 14px; font-size: 12px; gap: 6px;"
+                  onclick="PortalDashboard.openPaymentGuideModal()"
+                >
+                  <i data-lucide="info"></i> विस्तृत जानकारी (View Guide)
+                </button>
+              </div>
+
+              <!-- Step cards grid -->
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px;">
+                <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--line); border-radius: 10px; padding: 14px;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #3b82f6; color: #fff; font-size: 11px; font-weight: 700;">१</span>
+                    <strong style="font-size: 13px; color: var(--text);">क्युआर स्क्यान</strong>
+                  </div>
+                  <p style="font-size: 12px; color: var(--muted); margin: 0; line-height: 1.5;">
+                    ड्यासबोर्डको QR कोड आफ्नो मोबाइल बैंकिङ वा eSewa/Khalti बाट आफैँ स्क्यान गर्नुहोस्।
+                  </p>
+                </div>
+
+                <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--line); border-radius: 10px; padding: 14px;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #3b82f6; color: #fff; font-size: 11px; font-weight: 700;">२</span>
+                    <strong style="font-size: 13px; color: var(--text);">स्क्रिनसट लिनुहोस्</strong>
+                  </div>
+                  <p style="font-size: 12px; color: var(--muted); margin: 0; line-height: 1.5;">
+                    भुक्तानी सफल भएपछि Transaction ID स्पष्ट देखिने गरी रसिदको स्क्रिनसट सेभ गर्नुहोस्।
+                  </p>
+                </div>
+
+                <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--line); border-radius: 10px; padding: 14px;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #3b82f6; color: #fff; font-size: 11px; font-weight: 700;">३</span>
+                    <strong style="font-size: 13px; color: var(--text);">प्रमाण अपलोड</strong>
+                  </div>
+                  <p style="font-size: 12px; color: var(--muted); margin: 0; line-height: 1.5;">
+                    'क्युआर भुक्तानी' बटन क्लिक गरी उक्त स्क्रिनसट छानेर 'प्रमाण बुझाउनुहोस्' मा थिच्नुहोस्।
+                  </p>
+                </div>
+
+                <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--line); border-radius: 10px; padding: 14px;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #f59e0b; color: #fff; font-size: 11px; font-weight: 700;">४</span>
+                    <strong style="font-size: 13px; color: var(--text);">घरधनीको रुजु</strong>
+                  </div>
+                  <p style="font-size: 12px; color: var(--muted); margin: 0; line-height: 1.5;">
+                    स्थिति 'प्रमाणीकरण पेन्डिङ' मा जानेछ। घरधनीले बैंक खातामा रकम रुजु गर्नेछन्।
+                  </p>
+                </div>
+
+                <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 10px; padding: 14px;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #10b981; color: #fff; font-size: 11px; font-weight: 700;">५</span>
+                    <strong style="font-size: 13px; color: #4ade80;">रकम शून्य र PAID</strong>
+                  </div>
+                  <p style="font-size: 12px; color: var(--muted); margin: 0; line-height: 1.5;">
+                    स्वीकृत हुनासाथ बाँकी रकम 'रू ०.०० (० + ०)' हुनेछ र स्थिति 'भुक्तानी स्वीकृत' देखिनेछ।
+                  </p>
                 </div>
               </div>
             </div>
@@ -1228,8 +1310,8 @@
                   <thead>
                     <tr>
                       <th>बिल आईडी / मिति</th>
-                      <th>तल्ला / कोठा</th>
                       <th>बिजुली मिटर रिडिङ</th>
+                      <th>खपत युनिट</th>
                       <th>बिजुली रकम</th>
                       <th>कोठा भाडा</th>
                       <th>कुल रकम</th>
@@ -1699,21 +1781,22 @@
       </div>
     </div>
 
-    <!-- मोडल ३: नयाँ डेरावाला दर्ता मोडल (Create Tenant Modal - Admin) -->
+    <!-- मोडल ३: नयाँ डेरावाला दर्ता तथा सम्पादन मोडल (Create / Edit Tenant Modal - Admin) -->
     <div id="create_tenant_modal" class="app-modal-overlay hide" role="dialog" aria-modal="true">
       <div class="app-modal-card">
         <div class="app-modal-header">
-          <div class="app-modal-title">
-            <i data-lucide="user-plus"></i> नयाँ डेरावाला दर्ता (Create Tenant)
+          <div class="app-modal-title" id="tenant_modal_title">
+            <i data-lucide="user-plus" id="tenant_modal_icon"></i> <span id="tenant_modal_title_text">नयाँ डेरावाला दर्ता (Create Tenant)</span>
           </div>
           <button type="button" class="app-modal-close-btn" aria-label="Close">
             <i data-lucide="x"></i>
           </button>
         </div>
-        <form id="create_tenant_form" onsubmit="event.preventDefault(); PortalDashboard.submitCreateTenantAction();">
+        <form id="create_tenant_form" onsubmit="event.preventDefault(); PortalDashboard.submitTenantFormAction();">
+          <input type="hidden" id="tenant_modal_mode" value="create" />
           <div class="app-modal-body">
             <div class="modern-input-field-block">
-              <label class="field-label">प्रयोगकर्ता नाम (Username - अंग्रेजीमा)</label>
+              <label class="field-label" id="tenant_username_label">प्रयोगकर्ता नाम (Username - अंग्रेजीमा)</label>
               <input
                 type="text"
                 id="tenant_input_username"
@@ -1724,14 +1807,14 @@
             </div>
 
             <div class="modern-input-field-block">
-              <label class="field-label">लगइन पासवर्ड (Password)</label>
+              <label class="field-label" id="tenant_password_label">लगइन पासवर्ड (Password)</label>
               <input
                 type="password"
                 id="tenant_input_password"
                 class="modern-dashboard-input"
                 placeholder="पासवर्ड प्रविष्ट गर्नुहोस्"
-                required
               />
+              <span id="tenant_password_hint" class="hide" style="font-size: 11px; color: var(--muted-soft); margin-top: 4px; display: block;">पासवर्ड परिवर्तन गर्न चाहेमा नयाँ पासवर्ड राख्नुहोस् (खाली छाडेमा पुरानै पासवर्ड कायम रहनेछ)।</span>
             </div>
 
             <div class="modern-input-field-block">
@@ -1755,21 +1838,42 @@
               />
             </div>
 
+            <div class="modern-input-field-block hide" id="tenant_status_block">
+              <label class="field-label">खाता स्थिति (Account Status)</label>
+              <select id="tenant_input_status" class="modern-dashboard-input" style="background: var(--bg-soft);">
+                <option value="सक्रिय">सक्रिय (Active)</option>
+                <option value="निष्क्रीय">निष्क्रीय (Disabled / Moved out)</option>
+              </select>
+            </div>
+
             <div class="modern-input-field-block">
               <label class="field-label">तल्ला / कोठा छनौट (Floors)</label>
               <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 6px;">
                 <label style="font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 6px; cursor: pointer;">
-                  <input type="checkbox" name="tenant_floors" value="Ground Floor" /> भुईंतल्ला (Ground)
+                  <input type="checkbox" name="tenant_floors" value="Ground Floor" onchange="PortalDashboard.onTenantFloorsChanged()" /> भुईंतल्ला (Ground)
                 </label>
                 <label style="font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 6px; cursor: pointer;">
-                  <input type="checkbox" name="tenant_floors" value="1st Floor" checked /> पहिलो तल्ला (1st)
+                  <input type="checkbox" name="tenant_floors" value="1st Floor" checked onchange="PortalDashboard.onTenantFloorsChanged()" /> पहिलो तल्ला (1st)
                 </label>
                 <label style="font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 6px; cursor: pointer;">
-                  <input type="checkbox" name="tenant_floors" value="2nd Floor" /> दोस्रो तल्ला (2nd)
+                  <input type="checkbox" name="tenant_floors" value="2nd Floor" onchange="PortalDashboard.onTenantFloorsChanged()" /> दोस्रो तल्ला (2nd)
                 </label>
                 <label style="font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 6px; cursor: pointer;">
-                  <input type="checkbox" name="tenant_floors" value="3rd Floor" /> तेस्रो तल्ला (3rd)
+                  <input type="checkbox" name="tenant_floors" value="3rd Floor" onchange="PortalDashboard.onTenantFloorsChanged()" /> तेस्रो तल्ला (3rd)
                 </label>
+              </div>
+            </div>
+
+            <!-- Dynamic Current Meter Reading(s) based on selected floors -->
+            <div class="modern-input-field-block" id="tenant_meter_section" style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 10px; border: 1px solid var(--line);">
+              <label class="field-label" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-size: 13px; color: var(--text); font-weight: 600;">
+                  <i data-lucide="gauge" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; color: var(--accent);"></i> हालको बिजुली मिटर रिडिङ (Current Meter Reading)
+                </span>
+                <span id="tenant_meter_count_badge" style="font-size: 11px; color: var(--accent); background: rgba(56, 189, 248, 0.1); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(56, 189, 248, 0.2);">१ मिटर बक्स</span>
+              </label>
+              <div id="tenant_meter_inputs_list" style="display: flex; flex-direction: column; gap: 10px; margin-top: 6px;">
+                <!-- Populated dynamically based on selected floors -->
               </div>
             </div>
 
@@ -1785,7 +1889,7 @@
               />
             </div>
 
-            <!-- Wi-Fi Setup Fields (Issue 1) -->
+            <!-- Wi-Fi Setup Fields -->
             <div class="modern-input-field-block" style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px; border: 1px solid var(--line);">
               <label class="field-label" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 0;">
                 <span style="font-size: 13px; color: var(--text); font-weight: 600;"><i data-lucide="wifi" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; color: var(--accent);"></i> साझा वाइफाइ प्रयोग गर्ने? (Uses Shared Wi-Fi?)</span>
@@ -1822,7 +1926,7 @@
               class="modern-primary-action-btn"
               style="width: auto; padding: 10px 22px;"
             >
-              <i data-lucide="user-plus"></i> डेरावाला दर्ता गर्नुहोस्
+              <i data-lucide="user-plus" id="tenant_submit_btn_icon"></i> <span id="tenant_submit_btn_text">डेरावाला दर्ता गर्नुहोस्</span>
             </button>
           </div>
         </form>
@@ -1913,7 +2017,8 @@
               </select>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <!-- Single Meter Input Block (For 1 floor tenants) -->
+            <div id="single_meter_block" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
               <div class="modern-input-field-block">
                 <label class="field-label">अघिल्लो मिटर रिडिङ</label>
                 <div id="bill_previous_reading_display" style="padding: 10px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid var(--line); font-weight: 700; color: var(--text);">
@@ -1929,8 +2034,17 @@
                   class="modern-dashboard-input"
                   placeholder="उदा: १६०"
                   oninput="PortalDashboard.recalculateBillModal()"
-                  required
                 />
+              </div>
+            </div>
+
+            <!-- Multi-Meter Container (For tenants renting >1 flat: m1, m2, ...) -->
+            <div id="multi_meter_block" class="hide" style="background: rgba(0,0,0,0.25); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+              <div style="font-size: 13px; font-weight: 700; color: var(--accent); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                <i data-lucide="layers" style="width: 16px; height: 16px;"></i> बहु-तल्ला मिटर रिडिङ (Multi-Flat Meters: m1, m2)
+              </div>
+              <div id="multi_meter_fields_wrap" style="display: flex; flex-direction: column; gap: 10px;">
+                <!-- Dynamically populated per flat -->
               </div>
             </div>
 
@@ -2164,6 +2278,111 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- मोडल: विस्तृत भुक्तानी निर्देशिका मोडल (Payment Guide Modal - Rentee) -->
+    <div id="payment_guide_modal" class="app-modal-overlay hide" role="dialog" aria-modal="true">
+      <div class="app-modal-card" style="max-width: 620px;">
+        <div class="app-modal-header">
+          <div class="app-modal-title">
+            <i data-lucide="book-open"></i> पोर्टलबाट अनलाइन भुक्तानी गर्ने तरिका (Payment Guide)
+          </div>
+          <button type="button" class="modal-close-btn" onclick="PortalDashboard.closePaymentGuideModal()">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <div class="app-modal-body" style="display: flex; flex-direction: column; gap: 16px; padding: 20px;">
+          <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 10px; padding: 12px 16px; display: flex; align-items: center; gap: 12px;">
+            <i data-lucide="info" style="color: #60a5fa; width: 24px; height: 24px; flex-shrink: 0;"></i>
+            <span style="font-size: 13px; color: var(--text); line-height: 1.5;">
+              भाडा तथा बिजुली महसुल भुक्तानी गर्न तल उल्लेखित ५ चरणहरू पालना गर्नुहोस्। यसले तपाईंको कारोबारलाई सुरक्षित र छिटो बनाउँछ।
+            </span>
+          </div>
+
+          <!-- Step 1 -->
+          <div style="display: flex; gap: 14px; align-items: flex-start;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: #2563eb; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0;">
+              १
+            </div>
+            <div style="flex: 1;">
+              <h5 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 700; color: var(--text);">
+                क्युआर कोड आफैँ स्क्यान गर्नुहोस् (Scan Dynamic QR)
+              </h5>
+              <p style="margin: 0; font-size: 13px; color: var(--muted); line-height: 1.5;">
+                आफ्नो मोबाइलमा कुनै पनि मोबाइल बैंकिङ एप (eSewa, Khalti, ConnectIPS, Global Smart+) खोल्नुहोस् र पोर्टलको ड्यासबोर्डमा देखिएको Fonepay QR कोड स्क्यान गर्नुहोस्। तिर्नुपर्ने रकम स्वतः लोड हुनेछ।
+              </p>
+            </div>
+          </div>
+
+          <!-- Step 2 -->
+          <div style="display: flex; gap: 14px; align-items: flex-start;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: #2563eb; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0;">
+              २
+            </div>
+            <div style="flex: 1;">
+              <h5 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 700; color: var(--text);">
+                भुक्तानी सम्पन्न गरी रसिदको स्क्रिनसट लिनुहोस् (Take Screenshot)
+              </h5>
+              <p style="margin: 0; font-size: 13px; color: var(--muted); line-height: 1.5;">
+                रकम भुक्तानी सफल भएपछि देखिने रसिद वा सन्देशको स्क्रिनसट लिनुहोस्। स्क्रिनसटमा <strong>कारोबार रकम, मिति, र Transaction ID / Ref Code</strong> स्पष्ट देखिएको हुनुपर्छ।
+              </p>
+            </div>
+          </div>
+
+          <!-- Step 3 -->
+          <div style="display: flex; gap: 14px; align-items: flex-start;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: #2563eb; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0;">
+              ३
+            </div>
+            <div style="flex: 1;">
+              <h5 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 700; color: var(--text);">
+                पोर्टलमा भुक्तानी प्रमाण अपलोड गर्नुहोस् (Upload Proof)
+              </h5>
+              <p style="margin: 0; font-size: 13px; color: var(--muted); line-height: 1.5;">
+                ड्यासबोर्डको <strong>'क्युआर भुक्तानी'</strong> बटन वा बिल सूचीको 'भुक्तानी गर्नुहोस्' मा थिच्नुहोस्। त्यसपछि उक्त स्क्रिनसट फोटो छनौट गरी <strong>'प्रमाण बुझाउनुहोस्'</strong> मा क्लिक गर्नुहोस्।
+              </p>
+            </div>
+          </div>
+
+          <!-- Step 4 -->
+          <div style="display: flex; gap: 14px; align-items: flex-start;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: #d97706; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0;">
+              ४
+            </div>
+            <div style="flex: 1;">
+              <h5 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 700; color: #fbbf24;">
+                घरधनीको रुजु तथा स्वीकृतिको प्रतीक्षा गर्नुहोस् (Wait for Approval)
+              </h5>
+              <p style="margin: 0; font-size: 13px; color: var(--muted); line-height: 1.5;">
+                प्रमाण बुझाएपछि तपाईंको बिलको स्थिति <strong>'प्रमाणीकरण पेन्डिङ'</strong> मा जानेछ। घरधनीले आफ्नो बैंक खातामा रकम प्राप्त भएको रुजु गरी भुक्तानी स्वीकृत गर्नेछन्।
+              </p>
+            </div>
+          </div>
+
+          <!-- Step 5 -->
+          <div style="display: flex; gap: 14px; align-items: flex-start;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: #059669; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0;">
+              ५
+            </div>
+            <div style="flex: 1;">
+              <h5 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 700; color: #4ade80;">
+                बाँकी रकम शून्य (रू ०.००) र PAID स्थिति (Complete)
+              </h5>
+              <p style="margin: 0; font-size: 13px; color: var(--muted); line-height: 1.5;">
+                घरधनीले स्वीकृत गर्नासाथ तपाईंको <strong>तिर्नुपर्ने कुल रकम स्वचालित रूपमा रू ०.०० (० + ०)</strong> मा रिसेट हुनेछ, स्थिति <strong>'भुक्तानी स्वीकृत'</strong> हुनेछ र डाउनलोड/प्रिन्ट गर्न मिल्ने रसिद उपलब्ध हुनेछ।
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="app-modal-footer">
+          <button type="button" class="modern-secondary-btn" onclick="PortalDashboard.closePaymentGuideModal()">
+            बन्द गर्नुहोस्
+          </button>
+          <button type="button" class="modern-primary-action-btn" style="width: auto; padding: 10px 20px;" onclick="PortalDashboard.closePaymentGuideModal(); PortalDashboard.openPaymentModal();">
+            <i data-lucide="qr-code"></i> अहिल्यै भुक्तानी गर्नुहोस् (Pay Now)
+          </button>
+        </div>
       </div>
     </div>
 

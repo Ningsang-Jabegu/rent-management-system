@@ -278,6 +278,30 @@ const ApiService = {
     return data;
   },
 
+  // C.1. Edit / Update Tenant Details
+  editTenant: async function (tenantData) {
+    const res = await fetch(`${API_BASE}/admin/edit-tenant`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(tenantData)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || (data && data.success === false)) {
+      throw new Error(data.error || data.message || 'डेरावाला विवरण अद्यावधिक गर्न सकिएन');
+    }
+    return data;
+  },
+
+  // C.2. Fetch Specific Tenant Profile
+  getTenantProfile: async function (username) {
+    const res = await fetch(`${API_BASE}/rentee/profile/${encodeURIComponent(username)}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || (data && data.success === false)) {
+      return null;
+    }
+    return data.tenant || data;
+  },
+
   // D. Generate Monthly Bill
   generateBill: async function (billData) {
     const res = await fetch(`${API_BASE}/admin/generate-bill`, {
@@ -997,7 +1021,7 @@ const PortalDashboard = {
       }
       this.currentUsername = (resolvedUsername || '').trim().toLowerCase();
 
-      const [billsList, houseRules] = await Promise.all([
+      const [billsList, houseRules, tenantProfile] = await Promise.all([
         ApiService.getMyBills(this.currentUsername).catch(e => {
           console.warn('Rentee bills error:', e);
           return [];
@@ -1005,11 +1029,16 @@ const PortalDashboard = {
         ApiService.getHouseRules().catch(e => {
           console.warn('House rules error:', e);
           return [];
+        }),
+        ApiService.getTenantProfile(this.currentUsername).catch(e => {
+          console.warn('Tenant profile fetch error:', e);
+          return null;
         })
       ]);
 
       this.currentBills = billsList || [];
       this.currentHouseRules = houseRules || [];
+      this.currentTenantProfile = tenantProfile || null;
 
       this.renderRenteeDashboard();
       this.renderRenteeInvoices();
@@ -1171,18 +1200,38 @@ const PortalDashboard = {
     const bills = this.currentBills || [];
     const hasTransactions = bills.length > 0;
 
-    // Filter by normalized status
-    const unpaidOnlyBills = bills.filter(b => {
+    // Deduplicate bills by meter reading interval or ID to prevent double/triple counting from duplicate entries
+    const seenIntervals = new Set();
+    const uniqueBills = [];
+    const sortedBills = [...bills].sort((a, b) => {
+      const readingA = Number(a.currentMeterReading) || 0;
+      const readingB = Number(b.currentMeterReading) || 0;
+      if (readingB !== readingA) return readingB - readingA;
+      const timeA = new Date(a.createdAt || 0).getTime();
+      const timeB = new Date(b.createdAt || 0).getTime();
+      return timeB - timeA;
+    });
+
+    sortedBills.forEach(b => {
+      const intervalKey = `${b.previousMeterReading !== undefined ? b.previousMeterReading : 0}_${b.currentMeterReading !== undefined ? b.currentMeterReading : 0}`;
+      if (!seenIntervals.has(intervalKey)) {
+        seenIntervals.add(intervalKey);
+        uniqueBills.push(b);
+      }
+    });
+
+    // Filter by normalized status using deduplicated bills
+    const unpaidOnlyBills = uniqueBills.filter(b => {
       const s = (b.status || '').toLowerCase().trim();
       return s === 'unpaid' || s === 'अपेन्डिङ' || s === 'rejected';
     });
 
-    const pendingBills = bills.filter(b => {
+    const pendingBills = uniqueBills.filter(b => {
       const s = (b.status || '').toLowerCase().trim();
       return s === 'pending_verification' || s === 'pending' || s === 'प्रमाणीकरण पेन्डिङ';
     });
 
-    const paidBills = bills.filter(b => {
+    const paidBills = uniqueBills.filter(b => {
       const s = (b.status || '').toLowerCase().trim();
       return s === 'paid via qr' || s === 'paid' || s === 'approved' || s === 'भुक्तानी स्वीकृत';
     });
@@ -1192,23 +1241,37 @@ const PortalDashboard = {
     // Once admin approves, the bill is marked 'paid via QR', so total due resets to 0.
     // When admin sends a new bill, total due updates to the new bill amount.
     // For the first time with no transactions made by the tenant, total due is 0.
-    const outstandingBills = bills.filter(b => {
+    const outstandingBills = uniqueBills.filter(b => {
       const s = (b.status || '').toLowerCase().trim();
       return s === 'unpaid' || s === 'अपेन्डिङ' || s === 'rejected' || s === 'pending_verification' || s === 'pending' || s === 'प्रमाणीकरण पेन्डिङ';
     });
-    const totalDue = outstandingBills.reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
+
+    let totalFlatRentDue = 0;
+    let totalElecDue = 0;
+    outstandingBills.forEach(b => {
+      totalFlatRentDue += (Number(b.floorRent) || 0);
+      totalElecDue += (Number(b.electricityAmount) || 0);
+    });
+    const totalDue = totalFlatRentDue + totalElecDue;
     const displayDue = totalDue;
 
     // Latest bill reference (null if first time / no transactions)
-    const latestBill = hasTransactions ? bills[0] : null;
+    const latestBill = hasTransactions ? sortedBills[0] : null;
 
     // Profile summary header updates
     const session = SessionManager.getActiveSession();
-    const displayName = (session && session.user && session.user.fullName) || this.currentUsername || 'डेरावाला';
+    const prof = this.currentTenantProfile || null;
+    const displayName = (prof && (prof.fullName || prof.full_name)) || (session && session.user && session.user.fullName) || this.currentUsername || 'डेरावाला';
     const firstLetter = (displayName.charAt(0) || 'A').toUpperCase();
-    const assignedFloors = (latestBill && latestBill.floors && latestBill.floors.length > 0)
-      ? latestBill.floors.join(', ')
-      : 'पहिलो तल्ला (1st Floor)';
+    
+    let assignedFloors = 'पहिलो तल्ला (1st Floor)';
+    if (prof && Array.isArray(prof.floor) && prof.floor.length > 0) {
+      assignedFloors = prof.floor.join(', ');
+    } else if (latestBill && latestBill.floors && latestBill.floors.length > 0) {
+      assignedFloors = latestBill.floors.join(', ');
+    }
+
+    const currentBaseRent = (prof && prof.floorRent !== undefined) ? Number(prof.floorRent) : (Number(latestBill ? latestBill.floorRent : 15000) || 15000);
 
     $('#tenant_summary_name').text(displayName);
     $('#tenant_summary_username').text(`@${this.currentUsername}`);
@@ -1219,24 +1282,32 @@ const PortalDashboard = {
     $('#profile_full_name').text(displayName);
     $('#profile_username').text(`@${this.currentUsername}`);
     $('#profile_assigned_floors').text(assignedFloors);
-    $('#profile_base_rent').text(`रू ${(Number(latestBill ? latestBill.floorRent : 15000) || 15000).toLocaleString()}`);
+    $('#profile_base_rent').text(`रू ${currentBaseRent.toLocaleString()}`);
     $('#profile_elec_rate').text(`रू ${latestBill ? (latestBill.ratePerUnit || 12) : 12} / Unit`);
-    $('#profile_phone').text((session && session.user && session.user.phone) || '९८०६०६०६६३');
+    $('#profile_phone').text((prof && prof.phone) || (session && session.user && session.user.phone) || '९८०६०६०६६३');
 
     // Pre-fill profile update form
     $('#edit_profile_full_name').val(displayName);
-    $('#edit_profile_phone').val((session && session.user && session.user.phone) || '९८०६०६०६६३');
+    $('#edit_profile_phone').val((prof && prof.phone) || (session && session.user && session.user.phone) || '९८०६०६०६६३');
 
     // ==========================================
     // METRIC CARD 1: तिर्नुपर्ने कुल रकम (Total Due Metric Card)
     // ==========================================
     const $dueCard = $('#tenant_due_card').length ? $('#tenant_due_card') : $('#tenant_due_display').closest('.metric-glass-card');
     const $dueDisplay = $('#tenant_due_display, #tenant_due_display_2');
+    const $dueBreakdown = $('#tenant_due_breakdown');
     const $dueIconWrap = $('#tenant_due_icon_wrap').length ? $('#tenant_due_icon_wrap') : $dueCard.find('.card-icon-wrap');
     const $dueIcon = $('#tenant_due_icon').length ? $('#tenant_due_icon') : $dueCard.find('i');
     const $dueMeta = $('#tenant_due_meta_desc').length ? $('#tenant_due_meta_desc') : $dueCard.find('.card-meta-desc');
 
     $dueDisplay.text(`रू ${Number(displayDue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
+    if ($dueBreakdown.length) {
+      if (displayDue > 0) {
+        $dueBreakdown.text(`(${totalFlatRentDue} + ${totalElecDue})`);
+      } else {
+        $dueBreakdown.text('(0 + 0)');
+      }
+    }
 
     if (displayDue > 0) {
       if (pendingBills.length > 0 && unpaidOnlyBills.length === 0) {
@@ -1308,20 +1379,58 @@ const PortalDashboard = {
     // ==========================================
     // METRIC CARD 3 & 4: Electricity Rate & Meter Reading
     // ==========================================
-    const meterVal = latestBill && latestBill.currentMeterReading !== undefined ? latestBill.currentMeterReading : 0;
+    let meterValDisplay = '० Units';
+    let meterBreakdownText = '';
+
+    if (prof && (prof.meterBreakdownText || prof.meterReadings || prof.currentMeterReading !== undefined)) {
+      if (prof.meterBreakdownText && prof.meterBreakdownText.startsWith('[')) {
+        meterBreakdownText = prof.meterBreakdownText;
+      } else if (Array.isArray(prof.meterReadings) && prof.meterReadings.length > 1) {
+        meterBreakdownText = `[${prof.meterReadings.map(m => `${m.reading} (${m.id})`).join(', ')}]`;
+      }
+      if (prof.currentMeterReading !== undefined) {
+        meterValDisplay = `${prof.currentMeterReading} Units`;
+      }
+    } else if (latestBill && latestBill.currentMeterReading !== undefined) {
+      const curStr = String(latestBill.currentMeterReading).trim();
+      if (curStr.startsWith('[')) {
+        meterBreakdownText = curStr;
+        let sumUnits = 0;
+        const matches = curStr.match(/(\d+)\s*\(/g);
+        if (matches) {
+          matches.forEach(m => {
+            const num = parseInt(m, 10);
+            if (!isNaN(num)) sumUnits += num;
+          });
+          meterValDisplay = `${sumUnits} Units`;
+        } else {
+          meterValDisplay = curStr;
+        }
+      } else {
+        meterValDisplay = `${curStr} Units`;
+      }
+    }
+
+    $('#tenant_meter_reading').text(meterValDisplay);
+    if (meterBreakdownText && meterBreakdownText.startsWith('[')) {
+      $('#tenant_meter_breakdown').text(meterBreakdownText).removeClass('hide');
+    } else {
+      $('#tenant_meter_breakdown').text('').addClass('hide');
+    }
+
     const rateVal = latestBill && latestBill.ratePerUnit !== undefined ? latestBill.ratePerUnit : 12;
-    $('#tenant_meter_reading').text(`${meterVal} Units`);
     $('#tenant_elec_rate_display').text(`रू ${rateVal} / Unit`);
 
     // ==========================================
     // METRIC CARD 5: Wi-Fi Device Count
     // ==========================================
-    let tenantInfo = null;
-    try {
-      const storedTenants = JSON.parse(localStorage.getItem('jabegu_all_tenants') || '[]');
-      tenantInfo = storedTenants.find(t => t.username === this.currentUsername);
-    } catch (_) {}
-
+    let tenantInfo = prof;
+    if (!tenantInfo) {
+      try {
+        const storedTenants = JSON.parse(localStorage.getItem('jabegu_all_tenants') || '[]');
+        tenantInfo = storedTenants.find(t => t.username === this.currentUsername);
+      } catch (_) {}
+    }
     if (!tenantInfo && this.currentTenants) {
       tenantInfo = this.currentTenants.find(t => t.username === this.currentUsername);
     }
@@ -1429,16 +1538,51 @@ const PortalDashboard = {
 
     $tbody.empty();
 
-    if (this.currentBills.length === 0) {
+    if (!this.currentBills || this.currentBills.length === 0) {
       $tbody.html('<tr><td colspan="8" class="empty-state-notice">अहिलेसम्म कुनै मासिक बिल जारी गरिएको छैन।</td></tr>');
       return;
     }
 
-    this.currentBills.forEach(bill => {
+    // Deduplicate bills by meter reading interval (${prev} -> ${curr}) to remove duplicate entries of the same reading
+    const seenIntervals = new Set();
+    const uniqueBills = [];
+
+    // Sort strictly in descending order: highest / newest meter reading first (e.g. 484 -> 494, then 0 -> 484)
+    const sortedBills = [...this.currentBills].sort((a, b) => {
+      const readingA = Number(a.currentMeterReading) || 0;
+      const readingB = Number(b.currentMeterReading) || 0;
+      if (readingB !== readingA) return readingB - readingA;
+      const timeA = new Date(a.createdAt || 0).getTime();
+      const timeB = new Date(b.createdAt || 0).getTime();
+      if (timeB !== timeA) return timeB - timeA;
+      return (b.id || '').localeCompare(a.id || '');
+    });
+
+    sortedBills.forEach(bill => {
+      const intervalKey = `${bill.previousMeterReading !== undefined ? bill.previousMeterReading : 0}_${bill.currentMeterReading !== undefined ? bill.currentMeterReading : 0}`;
+      if (!seenIntervals.has(intervalKey)) {
+        seenIntervals.add(intervalKey);
+        uniqueBills.push(bill);
+      }
+    });
+
+    uniqueBills.forEach(bill => {
       const formattedDate = bill.createdAt ? new Date(bill.createdAt).toLocaleDateString('ne-NP') : '२०८३';
-      const badge = this.getStatusBadge(bill.status);
       const hasProof = !!bill.proofImage;
-      const isPaid = bill.status === 'paid via QR' || bill.status === 'paid' || bill.status === 'approved' || bill.status === 'भुक्तानी स्वीकृत';
+      const s = (bill.status || '').toLowerCase().trim();
+      const isPaid = s === 'paid via qr' || s === 'paid' || s === 'approved' || s === 'भुक्तानी स्वीकृत';
+
+      // Status rendered as clean normal plain text only: no badge background, no border
+      let statusTextHtml = '';
+      if (isPaid) {
+        statusTextHtml = `<span style="color: #4ade80; font-weight: 500; font-size: 13px;">भुक्तानी स्वीकृत</span>`;
+      } else if (s === 'pending_verification' || s === 'pending' || s.includes('पेन्डिङ')) {
+        statusTextHtml = `<span style="color: #fbbf24; font-weight: 500; font-size: 13px;">प्रमाणीकरण पेन्डिङ</span>`;
+      } else if (s === 'rejected' || s.includes('अस्वीकृत')) {
+        statusTextHtml = `<span style="color: #f87171; font-weight: 500; font-size: 13px;">अस्वीकृत</span>`;
+      } else {
+        statusTextHtml = `<span style="color: #f87171; font-weight: 500; font-size: 13px;">UNPAID</span>`;
+      }
 
       let actionBtn = '';
       if (isPaid) {
@@ -1447,7 +1591,7 @@ const PortalDashboard = {
             <i data-lucide="printer"></i> रसिद प्रिन्ट
           </button>
         `;
-      } else if (bill.status === 'unpaid' || bill.status === 'rejected') {
+      } else if (s === 'unpaid' || s === 'rejected') {
         actionBtn = `
           <button class="table-mini-action-btn accept-trigger" onclick="PortalDashboard.openPaymentModal('${bill.id}')">
             <i data-lucide="upload-cloud"></i> क्युआर भुक्तानी (Pay QR)
@@ -1474,7 +1618,7 @@ const PortalDashboard = {
             <span style="font-size:11px; color:var(--muted);">${formattedDate}</span>
           </td>
           <td>
-            <span style="font-size:12px;">${bill.previousMeterReading || 0} ➔ ${bill.currentMeterReading || 0}</span>
+            <span style="font-size:12px; font-weight:500;">${bill.previousMeterReading !== undefined ? bill.previousMeterReading : 0} ➔ ${bill.currentMeterReading !== undefined ? bill.currentMeterReading : 0}</span>
           </td>
           <td>
             <strong style="color:var(--accent-strong);">${bill.unitsConsumed || 0} Units</strong>
@@ -1482,7 +1626,7 @@ const PortalDashboard = {
           <td>रू ${(Number(bill.electricityAmount) || 0).toLocaleString()}</td>
           <td>रू ${(Number(bill.floorRent) || 0).toLocaleString()}</td>
           <td><strong style="color:var(--accent); font-size:14px;">रू ${(Number(bill.totalAmount) || 0).toLocaleString()}</strong></td>
-          <td>${badge}</td>
+          <td>${statusTextHtml}</td>
           <td>
             <div class="table-action-button-row">
               ${actionBtn}
@@ -1541,7 +1685,11 @@ const PortalDashboard = {
       this.renderOwnerMetrics(stats, tenants, allBills, verificationQueue);
       this.renderTenantsTable(tenants);
       this.renderOwnerBillingTable(allBills);
-      this.renderPaymentVerificationQueue(verificationQueue.length > 0 ? verificationQueue : allBills.filter(b => b.status === 'pending_verification' || b.proofImage));
+      const strictPendingQueue = ((verificationQueue && verificationQueue.length > 0) ? verificationQueue : (allBills || [])).filter(b => {
+        const s = (b.status || '').toLowerCase().trim();
+        return s === 'pending_verification' || s === 'pending' || s === 'प्रमाणीकरण पेन्डिङ';
+      });
+      this.renderPaymentVerificationQueue(strictPendingQueue);
       this.populateTenantDropdowns(tenants);
       this.renderOwnerHouseRules(this.currentHouseRules);
       this.renderProfileRequestsQueue();
@@ -1610,24 +1758,6 @@ const PortalDashboard = {
         ? `<span class="badge" style="background: rgba(34, 197, 94, 0.15); color: #86efac; border: 1px solid rgba(34,197,94,0.3);"><i data-lucide="wifi" style="width:12px;height:12px"></i> ${devCount} यन्त्रहरू</span>`
         : '<span style="color: var(--muted-soft); font-size: 12px;">N/A</span>';
 
-      const toggleActionBtn = isDisabled
-        ? `<button type="button" class="table-mini-action-btn accept-trigger" onclick="PortalDashboard.toggleTenantStatusAction('${t.username}', 'सक्रिय')" title="सक्रिय बनाउनुहोस्">
-            <i data-lucide="user-check"></i> सक्रिय बनाउनुहोस्
-           </button>`
-        : `<button type="button" class="table-mini-action-btn reject-trigger" onclick="PortalDashboard.toggleTenantStatusAction('${t.username}', 'निष्क्रीय')" title="कोठा छाडेपछि निष्क्रीय गर्नुहोस्">
-            <i data-lucide="user-x"></i> निष्क्रीय गर्नुहोस्
-           </button>`;
-
-      const resetPwdBtn = `<button type="button" class="table-mini-action-btn" onclick="PortalDashboard.openResetTenantPasswordModal('${t.username}')" title="पासवर्ड रिसेट गर्नुहोस्"><i data-lucide="key-round"></i> रिसेट</button>`;
-
-      const billBtn = isDisabled
-        ? `<button type="button" class="table-mini-action-btn" style="opacity: 0.55; cursor: not-allowed; background: rgba(255,255,255,0.05);" onclick="alert('यो डेरावाला निष्क्रीय (Disabled/Moved out) भएकोले बिल जारी गर्न मिल्दैन।')" title="निष्क्रीय डेरावालालाई बिल जारी गर्न मिल्दैन">
-            <i data-lucide="ban"></i> बिल रोकिएको
-           </button>`
-        : `<button type="button" class="table-mini-action-btn accept-trigger" onclick="PortalDashboard.openGenerateBillModalForTenant('${t.username}')">
-            <i data-lucide="plus-circle"></i> बिल काट्नुहोस्
-           </button>`;
-
       const row = `
         <tr>
           <td>
@@ -1642,9 +1772,9 @@ const PortalDashboard = {
           <td>${statusBadge}</td>
           <td>
             <div class="table-action-button-row">
-              ${billBtn}
-              ${resetPwdBtn}
-              ${toggleActionBtn}
+              <button type="button" class="table-mini-action-btn accept-trigger" onclick="PortalDashboard.openEditTenantModal('${t.username}')" title="डेरावाला विवरण सम्पादन गर्नुहोस्">
+                <i data-lucide="edit"></i> सम्पादन (Edit)
+              </button>
             </div>
           </td>
         </tr>
@@ -1745,7 +1875,11 @@ const PortalDashboard = {
     if (!$tbody.length) return;
 
     $tbody.empty();
-    const queue = (bills || []).filter(b => b.status === 'pending_verification' || b.proofImage);
+    // Strictly show pending verification items only (never show paid, approved, or rejected)
+    const queue = (bills || []).filter(b => {
+      const s = (b.status || '').toLowerCase().trim();
+      return s === 'pending_verification' || s === 'pending' || s === 'प्रमाणीकरण पेन्डिङ';
+    });
 
     if (queue.length === 0) {
       $tbody.html('<tr><td colspan="5" class="empty-state-notice"><i data-lucide="check-circle" style="width:16px;height:16px;display:inline-block;vertical-align:middle;color:#8cf0a2;"></i> हाल प्रमाणीकरणका लागि कुनै नयाँ भुक्तानी पेन्डिङ छैन।</td></tr>');
@@ -2018,7 +2152,7 @@ const PortalDashboard = {
     });
   },
 
-  // 3. Create Tenant Modal & Action (Issue 1: Wi-Fi Setup)
+  // 3. Create & Edit Tenant Modal Logic with Multi-Floor Meters
   toggleWifiDeviceInput: function (isChecked) {
     if (isChecked) {
       $('#tenant_wifi_devices_block').removeClass('hide');
@@ -2027,17 +2161,169 @@ const PortalDashboard = {
     }
   },
 
+  onTenantFloorsChanged: function (savedReadings) {
+    const selectedFloors = [];
+    $('input[name="tenant_floors"]:checked').each(function () {
+      selectedFloors.push($(this).val());
+    });
+
+    // Fallback if none checked
+    const activeFloors = selectedFloors.length > 0 ? selectedFloors : ['1st Floor'];
+    const count = activeFloors.length;
+
+    $('#tenant_meter_count_badge').text(
+      count > 1 ? `${count} मिटर बक्स (Floor-wise)` : '१ मिटर बक्स'
+    );
+
+    const floorTranslations = {
+      'Ground Floor': 'भुईंतल्ला (Ground Floor)',
+      '1st Floor': 'पहिलो तल्ला (1st Floor)',
+      '2nd Floor': 'दोस्रो तल्ला (2nd Floor)',
+      '3rd Floor': 'तेस्रो तल्ला (3rd Floor)'
+    };
+
+    const $list = $('#tenant_meter_inputs_list');
+    $list.empty();
+
+    activeFloors.forEach((fl, idx) => {
+      const meterId = `m${idx + 1}`;
+      let initialVal = '';
+
+      if (Array.isArray(savedReadings)) {
+        const found = savedReadings.find(r => r.id === meterId || r.floor === fl);
+        if (found && found.reading !== undefined) initialVal = found.reading;
+      } else if (typeof savedReadings === 'object' && savedReadings !== null) {
+        if (savedReadings[meterId] !== undefined) initialVal = savedReadings[meterId];
+        else if (savedReadings[fl] !== undefined) initialVal = savedReadings[fl];
+      } else if (typeof savedReadings === 'number' && idx === 0) {
+        initialVal = savedReadings;
+      }
+
+      const labelText = count > 1 ? (floorTranslations[fl] || fl) : 'हालको मिटर रिडिङ (Current Reading)';
+      const subText = count > 1 ? `मिटर बक्स ${meterId}` : (floorTranslations[fl] || fl);
+
+      const rowHtml = `
+        <div class="floor-meter-row" data-floor="${fl}" data-meter-id="${meterId}" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(0,0,0,0.25); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line);">
+          <div style="display: flex; flex-direction: column;">
+            <span style="font-size: 13px; font-weight: 600; color: var(--text);">${labelText}</span>
+            <span style="font-size: 11px; color: var(--accent);">${subText}</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <input
+              type="number"
+              class="modern-dashboard-input tenant-meter-reading-input"
+              data-floor="${fl}"
+              data-meter-id="${meterId}"
+              style="width: 120px; padding: 6px 10px; text-align: right; font-weight: 700; background: var(--bg-card);"
+              value="${initialVal}"
+              placeholder="उदा: 120"
+              min="0"
+            />
+            <span style="font-size: 12px; color: var(--muted); font-weight: 600;">Units</span>
+          </div>
+        </div>
+      `;
+      $list.append(rowHtml);
+    });
+  },
+
   openCreateTenantModal: function () {
     $('#create_tenant_form')[0].reset();
+    $('#tenant_modal_mode').val('create');
+    $('#tenant_modal_title_text').text('नयाँ डेरावाला दर्ता (Create Tenant)');
+    $('#tenant_modal_icon').attr('data-lucide', 'user-plus');
+    $('#tenant_input_username').prop('readonly', false).css({ background: '', opacity: '' });
+    $('#tenant_password_label').text('लगइन पासवर्ड (Password)');
+    $('#tenant_input_password').prop('required', true).attr('placeholder', 'पासवर्ड प्रविष्ट गर्नुहोस्');
+    $('#tenant_password_hint').addClass('hide');
+    $('#tenant_status_block').addClass('hide');
+
+    $('input[name="tenant_floors"]').prop('checked', false);
+    $('input[name="tenant_floors"][value="1st Floor"]').prop('checked', true);
+    this.onTenantFloorsChanged();
+
     $('#tenant_input_uses_wifi').prop('checked', false);
     $('#tenant_wifi_devices_block').addClass('hide');
     $('#tenant_input_wifi_devices').val('1');
     $('#create_tenant_msg').text('');
+
+    $('#tenant_submit_btn_icon').attr('data-lucide', 'user-plus');
+    $('#tenant_submit_btn_text').text('डेरावाला दर्ता गर्नुहोस्');
+
     $('#create_tenant_modal').removeClass('hide');
     if (typeof lucide !== 'undefined') lucide.createIcons();
   },
 
-  submitCreateTenantAction: async function () {
+  openEditTenantModal: async function (username) {
+    const u = String(username || '').trim().toLowerCase();
+    let tenant = (this.currentTenants || []).find(t => String(t.username).trim().toLowerCase() === u);
+
+    // Fetch freshest profile from server
+    try {
+      const freshTenant = await ApiService.getTenantProfile(u);
+      if (freshTenant) tenant = { ...(tenant || {}), ...freshTenant };
+    } catch (_) {}
+
+    if (!tenant) {
+      alert(`डेरावाला @${u} को विवरण फेला परेन।`);
+      return;
+    }
+
+    $('#create_tenant_form')[0].reset();
+    $('#tenant_modal_mode').val('edit');
+    $('#tenant_modal_title_text').text(`डेरावाला विवरण सम्पादन (Edit Tenant - @${u})`);
+    $('#tenant_modal_icon').attr('data-lucide', 'edit');
+
+    // Username is locked in edit mode
+    $('#tenant_input_username').val(u).prop('readonly', true).css({ background: 'rgba(255,255,255,0.05)', opacity: '0.85' });
+
+    // Password is optional for edit (only changed if filled)
+    $('#tenant_password_label').text('लगइन पासवर्ड (नयाँ पासवर्ड राख्न चाहेमा)');
+    $('#tenant_input_password').prop('required', false).val('').attr('placeholder', 'पासवर्ड परिवर्तन नगर्ने भए खाली छाड्नुहोस्');
+    $('#tenant_password_hint').removeClass('hide');
+
+    // Full name and phone
+    $('#tenant_input_fullname').val(tenant.fullName || tenant.full_name || u);
+    $('#tenant_input_phone').val(tenant.phone || '');
+
+    // Account status
+    $('#tenant_status_block').removeClass('hide');
+    $('#tenant_input_status').val(tenant.status || 'सक्रिय');
+
+    // Floors checkboxes
+    const assignedFloors = Array.isArray(tenant.floor) ? tenant.floor : (tenant.floor ? [tenant.floor] : ['1st Floor']);
+    $('input[name="tenant_floors"]').prop('checked', false);
+    assignedFloors.forEach(fl => {
+      $(`input[name="tenant_floors"][value="${fl}"]`).prop('checked', true);
+    });
+
+    // Populate multi-floor meters
+    this.onTenantFloorsChanged(tenant.meterReadings || tenant.currentMeterReading);
+
+    // Rent
+    $('#tenant_input_floorrent').val(tenant.floorRent !== undefined ? tenant.floorRent : 15000);
+
+    // Wi-Fi
+    const usesWifi = Boolean(tenant.usesSharedWifi);
+    $('#tenant_input_uses_wifi').prop('checked', usesWifi);
+    if (usesWifi) {
+      $('#tenant_wifi_devices_block').removeClass('hide');
+      $('#tenant_input_wifi_devices').val(tenant.wifiDeviceCount || 1);
+    } else {
+      $('#tenant_wifi_devices_block').addClass('hide');
+      $('#tenant_input_wifi_devices').val('1');
+    }
+
+    $('#create_tenant_msg').text('');
+    $('#tenant_submit_btn_icon').attr('data-lucide', 'save');
+    $('#tenant_submit_btn_text').text('विवरण अद्यावधिक गर्नुहोस् (Save Changes)');
+
+    $('#create_tenant_modal').removeClass('hide');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  },
+
+  submitTenantFormAction: async function () {
+    const mode = $('#tenant_modal_mode').val() || 'create';
     const username = $('#tenant_input_username').val().trim().toLowerCase();
     const password = $('#tenant_input_password').val().trim();
     const fullName = $('#tenant_input_fullname').val().trim();
@@ -2045,6 +2331,7 @@ const PortalDashboard = {
     const floorRent = Number($('#tenant_input_floorrent').val()) || 15000;
     const usesSharedWifi = $('#tenant_input_uses_wifi').is(':checked');
     const wifiDeviceCount = usesSharedWifi ? (parseInt($('#tenant_input_wifi_devices').val(), 10) || 1) : 0;
+    const status = $('#tenant_input_status').val() || 'सक्रिय';
 
     const selectedFloors = [];
     $('input[name="tenant_floors"]:checked').each(function () {
@@ -2054,28 +2341,64 @@ const PortalDashboard = {
       selectedFloors.push('1st Floor');
     }
 
-    if (!username || !password || !fullName) {
-      $('#create_tenant_msg').text('कृपया सबै आवश्यक विवरण भर्नुहोस्।');
+    if (!username || !fullName) {
+      $('#create_tenant_msg').text('कृपया प्रयोगकर्ता नाम र पूरा नाम अनिवार्य रूपमा भर्नुहोस्।');
       return;
     }
 
-    $('#btn_create_tenant_submit').prop('disabled', true).text('दर्ता हुँदैछ...');
+    if (mode === 'create' && !password) {
+      $('#create_tenant_msg').text('कृपया लगइन पासवर्ड प्रविष्ट गर्नुहोस्।');
+      return;
+    }
+
+    // Collect meters
+    const meters = [];
+    let totalMeterReading = 0;
+    $('.tenant-meter-reading-input').each(function () {
+      const fl = $(this).data('floor');
+      const mid = $(this).data('meter-id');
+      const val = Number($(this).val()) || 0;
+      meters.push({ id: mid, floor: fl, reading: val });
+      totalMeterReading += val;
+    });
+
+    let meterBreakdownText = '';
+    if (meters.length > 1) {
+      meterBreakdownText = `[${meters.map(m => `${m.reading} (${m.id})`).join(', ')}]`;
+    } else if (meters.length === 1) {
+      meterBreakdownText = `${meters[0].reading} Units`;
+    }
 
     const payload = {
       username,
-      password,
       fullName,
       phone,
       floor: selectedFloors,
       floorRent,
       usesSharedWifi,
-      wifiDeviceCount
+      wifiDeviceCount,
+      status,
+      meters,
+      meterReadings: meters,
+      currentMeterReading: totalMeterReading,
+      meterBreakdownText
     };
+    if (password) {
+      payload.password = password;
+    }
+
+    $('#btn_create_tenant_submit').prop('disabled', true).find('#tenant_submit_btn_text').text('प्रशोधन हुँदैछ...');
 
     try {
-      await ApiService.createTenant(payload);
+      if (mode === 'edit') {
+        await ApiService.editTenant(payload);
+        alert(`डेरावाला @${username} को विवरण सफलतापूर्वक अद्यावधिक गरियो!`);
+      } else {
+        await ApiService.createTenant(payload);
+        alert(`नयाँ डेरावाला @${username} सफलतापूर्वक दर्ता गरियो!`);
+      }
 
-      // Persist wifi settings and tenant info locally
+      // Sync localStorage cache
       try {
         let allTenants = JSON.parse(localStorage.getItem('jabegu_all_tenants') || '[]');
         allTenants = allTenants.filter(t => t.username !== username);
@@ -2083,14 +2406,18 @@ const PortalDashboard = {
         localStorage.setItem('jabegu_all_tenants', JSON.stringify(allTenants));
       } catch (_) {}
 
-      alert(`नयाँ डेरावाला @${username} सफलतापूर्वक दर्ता गरियो!`);
       $('#create_tenant_modal').addClass('hide');
       await this.loadOwnerData();
     } catch (err) {
-      alert(err.message || 'डेरावाला दर्ता गर्दा त्रुटि भयो।');
+      alert(err.message || 'कार्य सम्पादन गर्दा त्रुटि भयो।');
     } finally {
-      $('#btn_create_tenant_submit').prop('disabled', false).text('डेरावाला दर्ता गर्नुहोस्');
+      $('#btn_create_tenant_submit').prop('disabled', false);
+      $('#tenant_submit_btn_text').text(mode === 'edit' ? 'विवरण अद्यावधिक गर्नुहोस् (Save Changes)' : 'डेरावाला दर्ता गर्नुहोस्');
     }
+  },
+
+  submitCreateTenantAction: function () {
+    return this.submitTenantFormAction();
   },
 
   // 4. Generate Monthly Bill Modal & Action
@@ -2113,30 +2440,124 @@ const PortalDashboard = {
     $('#bill_tenant_select').val(tenantUsername).trigger('change');
   },
 
+  // Payment Guide Modal Helpers
+  openPaymentGuideModal: function () {
+    $('#payment_guide_modal').removeClass('hide');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  },
+
+  closePaymentGuideModal: function () {
+    $('#payment_guide_modal').addClass('hide');
+  },
+
   recalculateBillModal: function () {
     const tenantUsername = $('#bill_tenant_select').val();
-    const currentReading = Number($('#bill_current_reading').val()) || 0;
     const rate = Number($('#bill_rate_per_unit').val()) || 12;
     const floorRent = Number($('#bill_floor_rent').val()) || 15000;
 
-    // Find previous reading from tenant's latest bill
-    const tenantBills = (this.currentBills || []).filter(b => b.tenantUsername && b.tenantUsername.toLowerCase() === (tenantUsername || '').toLowerCase());
-    const prevReading = tenantBills.length > 0 ? (tenantBills[0].currentMeterReading || 0) : 0;
-    $('#bill_previous_reading_display').text(`${prevReading} Units`);
+    const tenant = (this.currentTenants || []).find(t => t.username === tenantUsername);
+    const floors = (tenant && Array.isArray(tenant.floor)) ? tenant.floor : ((tenant && tenant.floor) ? [tenant.floor] : ['1st Floor']);
+    const isMulti = floors.length > 1;
 
-    const unitsConsumed = Math.max(0, currentReading - prevReading);
-    const electricityAmount = unitsConsumed * rate;
-    const total = electricityAmount + floorRent;
+    // Find previous bills for this tenant sorted chronologically descending
+    const tenantBills = (this.currentBills || [])
+      .filter(b => b.tenantUsername && b.tenantUsername.toLowerCase() === (tenantUsername || '').toLowerCase())
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    const latestBill = tenantBills[0];
 
-    $('#calc_preview_units').text(`${unitsConsumed} Units`);
-    $('#calc_preview_elec').text(`रू ${electricityAmount.toLocaleString()}`);
-    $('#calc_preview_rent').text(`रू ${floorRent.toLocaleString()}`);
-    $('#calc_preview_total').text(`रू ${total.toLocaleString()}`);
+    let totalUnits = 0;
+
+    if (isMulti) {
+      $('#single_meter_block').addClass('hide');
+      $('#multi_meter_block').removeClass('hide');
+
+      const $wrap = $('#multi_meter_fields_wrap');
+      const currentSelected = $wrap.attr('data-loaded-for');
+      if (currentSelected !== tenantUsername) {
+        $wrap.attr('data-loaded-for', tenantUsername);
+        $wrap.empty();
+
+        const prevBreakdown = (latestBill && latestBill.meterBreakdown) || [];
+
+        floors.forEach((fl, idx) => {
+          const mId = `m${idx + 1}`;
+          let prevVal = 0;
+          if (prevBreakdown[idx] && prevBreakdown[idx].curr !== undefined) {
+            prevVal = Number(prevBreakdown[idx].curr) || 0;
+          } else if (latestBill && typeof latestBill.currentMeterReading === 'string' && latestBill.currentMeterReading.includes(mId)) {
+            const match = latestBill.currentMeterReading.match(new RegExp(`(\\d+)\\s*\\(${mId}\\)`));
+            if (match) prevVal = Number(match[1]) || 0;
+          }
+
+          const rowHtml = `
+            <div class="multi-meter-input-row" data-meter-id="${mId}" data-floor="${fl}" style="display: grid; grid-template-columns: 1.2fr 1fr 1.2fr; gap: 10px; align-items: center; padding: 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--line); border-radius: 8px;">
+              <div>
+                <strong style="font-size: 13px; color: var(--text); display: block;">मिटर ${idx + 1} (${mId})</strong>
+                <span style="font-size: 11px; color: var(--muted);">${fl}</span>
+              </div>
+              <div>
+                <span style="font-size: 11px; color: var(--muted); display: block;">अघिल्लो रिडिङ</span>
+                <span style="font-weight: 700; font-size: 13px; color: var(--text);">${prevVal}</span>
+              </div>
+              <div>
+                <label style="font-size: 11px; color: var(--muted); display: block;">हालको रिडिङ (${mId})</label>
+                <input
+                  type="number"
+                  class="modern-dashboard-input multi-meter-curr-input"
+                  data-meter-id="${mId}"
+                  data-floor="${fl}"
+                  data-prev="${prevVal}"
+                  placeholder="${prevVal}"
+                  oninput="PortalDashboard.recalculateBillModal()"
+                  style="padding: 6px 10px; font-size: 13px;"
+                />
+              </div>
+            </div>
+          `;
+          $wrap.append(rowHtml);
+        });
+      }
+
+      // Sum units from all meter rows
+      let unitSummaryParts = [];
+      $('.multi-meter-curr-input').each(function () {
+        const mId = $(this).attr('data-meter-id');
+        const prev = Number($(this).attr('data-prev')) || 0;
+        const curr = Number($(this).val()) || prev;
+        const u = Math.max(0, curr - prev);
+        totalUnits += u;
+        unitSummaryParts.push(`${u} (${mId})`);
+      });
+
+      const elecAmount = totalUnits * rate;
+      const total = elecAmount + floorRent;
+      $('#calc_preview_units').text(`${totalUnits} Units (${unitSummaryParts.join(' + ')})`);
+      $('#calc_preview_elec').text(`रू ${elecAmount.toLocaleString()}`);
+      $('#calc_preview_rent').text(`रू ${floorRent.toLocaleString()}`);
+      $('#calc_preview_total').text(`रू ${total.toLocaleString()}`);
+
+    } else {
+      $('#single_meter_block').removeClass('hide');
+      $('#multi_meter_block').addClass('hide');
+      $('#multi_meter_fields_wrap').removeAttr('data-loaded-for').empty();
+
+      const prevReading = latestBill ? (Number(latestBill.currentMeterReading) || 0) : 0;
+      $('#bill_previous_reading_display').text(`${prevReading} Units`);
+
+      const currentReading = Number($('#bill_current_reading').val()) || prevReading;
+      totalUnits = Math.max(0, currentReading - prevReading);
+      const elecAmount = totalUnits * rate;
+      const total = elecAmount + floorRent;
+
+      $('#calc_preview_units').text(`${totalUnits} Units`);
+      $('#calc_preview_elec').text(`रू ${elecAmount.toLocaleString()}`);
+      $('#calc_preview_rent').text(`रू ${floorRent.toLocaleString()}`);
+      $('#calc_preview_total').text(`रू ${total.toLocaleString()}`);
+    }
   },
 
   submitGenerateBillAction: async function () {
     const tenantUsername = $('#bill_tenant_select').val();
-    const currentMeterReading = Number($('#bill_current_reading').val()) || 0;
     const ratePerUnit = Number($('#bill_rate_per_unit').val()) || 12;
     const floorRent = Number($('#bill_floor_rent').val()) || 15000;
 
@@ -2151,12 +2572,28 @@ const PortalDashboard = {
       return;
     }
 
-    const payload = {
+    const floors = (tenant && Array.isArray(tenant.floor)) ? tenant.floor : ((tenant && tenant.floor) ? [tenant.floor] : ['1st Floor']);
+    const isMulti = floors.length > 1;
+
+    let payload = {
       tenantUsername,
-      currentMeterReading,
       ratePerUnit,
       floorRent
     };
+
+    if (isMulti) {
+      const meters = [];
+      $('.multi-meter-curr-input').each(function () {
+        const id = $(this).attr('data-meter-id');
+        const floor = $(this).attr('data-floor');
+        const prev = Number($(this).attr('data-prev')) || 0;
+        const curr = Number($(this).val()) || prev;
+        meters.push({ id, floor, prev, curr });
+      });
+      payload.meters = meters;
+    } else {
+      payload.currentMeterReading = Number($('#bill_current_reading').val()) || 0;
+    }
 
     $('#btn_generate_bill_submit').prop('disabled', true).text('बिल तयार हुँदैछ...');
 
