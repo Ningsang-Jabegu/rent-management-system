@@ -1,8 +1,12 @@
 // js/index.js
 // Jabegu Niwas Rent Management Portal - Full-Stack Frontend Engine
 
-const API_BASE_URL = 'https://api.ningsangjabegu.com.np';
-const API_BASE = 'https://api.ningsangjabegu.com.np/api/jabegu-rent-portal';
+const API_BASE_URL = (typeof window !== 'undefined' && window.location && window.location.origin && !window.location.origin.startsWith('file'))
+  ? window.location.origin
+  : 'https://api.ningsangjabegu.com.np';
+const API_BASE = (typeof window !== 'undefined' && window.location && window.location.origin && !window.location.origin.startsWith('file'))
+  ? `${window.location.origin}/api/jabegu-rent-portal`
+  : 'https://api.ningsangjabegu.com.np/api/jabegu-rent-portal';
 
 // ==========================================
 // ०. सुरक्षित सेसन प्रबन्धक (Unique Season/Session Slug Engine)
@@ -623,7 +627,7 @@ const ApiService = {
 
     resolvedUsername = (resolvedUsername || '').trim().toLowerCase();
 
-    const fetchUrl = `https://api.ningsangjabegu.com.np/api/jabegu-rent-portal/rentee/my-bills/${encodeURIComponent(resolvedUsername)}`;
+    const fetchUrl = `${API_BASE}/rentee/my-bills/${encodeURIComponent(resolvedUsername)}`;
     const res = await fetch(fetchUrl);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -1021,9 +1025,14 @@ const PortalDashboard = {
   getQrPayload: function (provider, bill, totalDue) {
     const session = SessionManager.getActiveSession();
     const tenantName = (session && session.user && session.user.fullName) || this.currentUsername || 'Aanayas Limbu';
-    const amountVal = (bill && bill.totalAmount) ? Number(bill.totalAmount) : (Number(totalDue) || 15000);
+    const amountVal = (totalDue !== undefined && totalDue !== null) ? Number(totalDue) : ((bill && bill.totalAmount !== undefined) ? Number(bill.totalAmount) : 0);
     const formattedAmount = Number(amountVal).toFixed(2);
-    const isPaid = bill && (bill.status === 'paid via QR' || bill.status === 'paid' || bill.status === 'approved' || bill.status === 'भुक्तानी स्वीकृत');
+    const isPaid = amountVal === 0 || (bill && (
+      (bill.status || '').toLowerCase().trim() === 'paid via qr' ||
+      (bill.status || '').toLowerCase().trim() === 'paid' ||
+      (bill.status || '').toLowerCase().trim() === 'approved' ||
+      (bill.status || '').includes('स्वीकृत')
+    ));
 
     if (provider === 'global_ime') {
       if (isPaid) {
@@ -1083,10 +1092,12 @@ const PortalDashboard = {
 
   updateDashboardQrDisplay: function () {
     const bills = this.currentBills || [];
-    const unpaidBill = bills.find(b => b.status === 'unpaid' || b.status === 'rejected') || bills[0];
-    const totalDue = bills
-      .filter(b => b.status === 'unpaid' || b.status === 'pending_verification')
-      .reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
+    const unpaidBills = bills.filter(b => {
+      const s = (b.status || '').toLowerCase().trim();
+      return s === 'unpaid' || s === 'अपेन्डिङ' || s === 'rejected';
+    });
+    const totalDue = unpaidBills.reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
+    const unpaidBill = unpaidBills[0] || null;
 
     const payload = this.getQrPayload(this.currentPaymentProvider, unpaidBill, totalDue);
     const qrString = typeof payload === 'string' ? payload : JSON.stringify(payload);
@@ -1115,7 +1126,18 @@ const PortalDashboard = {
     const session = SessionManager.getActiveSession();
     const tenantName = (session && session.user && session.user.fullName) || this.currentUsername || 'Aanayas Limbu';
     $('#tenant_qr_remarks, #page_qr_remarks').text(`Flat rent for ${tenantName}`);
-    $('#page_qr_amount').text(`रू ${Number(totalDue || (unpaidBill && unpaidBill.totalAmount) || 15000).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
+    $('#page_qr_amount').text(`रू ${Number(totalDue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
+
+    if (totalDue === 0) {
+      if (bills.length > 0) {
+        $('#tenant_qr_desc').html('<span style="color:#86efac; font-weight:600;"><i data-lucide="check-circle" style="width:14px;height:14px;display:inline-block;vertical-align:middle;"></i> तपाईंको सबै महिनाको भाडा भुक्तानी भइसकेको छ।</span> हाल कुनै पनि बक्यौता रकम बाँकी छैन।');
+      } else {
+        $('#tenant_qr_desc').text('हाल तपाईंको लागि कुनै मासिक बिल जारी गरिएको छैन। नयाँ बिल जारी भएपछि यहाँ विवरण देखिनेछ।');
+      }
+    } else {
+      $('#tenant_qr_desc').text('यो क्युआर कोडमा हालको बाँकी रकम स्वचालित रूपमा जोडिएको छ। कुनै पनि मोबाइल बैंकिङ वा डिजिटल वालेट (eSewa / Khalti / Fonepay) मार्फत स्क्यान गर्दा सिधै रकम दाखिला हुनेछ।');
+    }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   },
 
   updateModalQrDisplay: function () {
@@ -1146,29 +1168,47 @@ const PortalDashboard = {
 
   renderRenteeDashboard: function () {
     const self = this;
-    const bills = this.currentBills;
-    const latestBill = bills[0] || {
-      totalAmount: 15000,
-      currentMeterReading: 160,
-      status: 'unpaid',
-      unitsConsumed: 0,
-      electricityAmount: 0,
-      floorRent: 15000,
-      ratePerUnit: 12
-    };
+    const bills = this.currentBills || [];
+    const hasTransactions = bills.length > 0;
 
-    // Calculate total unpaid & pending
-    const totalDue = bills
-      .filter(b => b.status === 'unpaid' || b.status === 'pending_verification')
-      .reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
+    // Filter by normalized status
+    const unpaidOnlyBills = bills.filter(b => {
+      const s = (b.status || '').toLowerCase().trim();
+      return s === 'unpaid' || s === 'अपेन्डिङ' || s === 'rejected';
+    });
 
-    const displayDue = totalDue > 0 ? totalDue : (latestBill.totalAmount || 0);
+    const pendingBills = bills.filter(b => {
+      const s = (b.status || '').toLowerCase().trim();
+      return s === 'pending_verification' || s === 'pending' || s === 'प्रमाणीकरण पेन्डिङ';
+    });
+
+    const paidBills = bills.filter(b => {
+      const s = (b.status || '').toLowerCase().trim();
+      return s === 'paid via qr' || s === 'paid' || s === 'approved' || s === 'भुक्तानी स्वीकृत';
+    });
+
+    // 1. Calculate total due:
+    // When tenant pays and sends proof, it stays pending until admin approves.
+    // Once admin approves, the bill is marked 'paid via QR', so total due resets to 0.
+    // When admin sends a new bill, total due updates to the new bill amount.
+    // For the first time with no transactions made by the tenant, total due is 0.
+    const outstandingBills = bills.filter(b => {
+      const s = (b.status || '').toLowerCase().trim();
+      return s === 'unpaid' || s === 'अपेन्डिङ' || s === 'rejected' || s === 'pending_verification' || s === 'pending' || s === 'प्रमाणीकरण पेन्डिङ';
+    });
+    const totalDue = outstandingBills.reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
+    const displayDue = totalDue;
+
+    // Latest bill reference (null if first time / no transactions)
+    const latestBill = hasTransactions ? bills[0] : null;
 
     // Profile summary header updates
     const session = SessionManager.getActiveSession();
     const displayName = (session && session.user && session.user.fullName) || this.currentUsername || 'डेरावाला';
     const firstLetter = (displayName.charAt(0) || 'A').toUpperCase();
-    const assignedFloors = (latestBill.floors && latestBill.floors.length > 0) ? latestBill.floors.join(', ') : 'पहिलो तल्ला (1st Floor)';
+    const assignedFloors = (latestBill && latestBill.floors && latestBill.floors.length > 0)
+      ? latestBill.floors.join(', ')
+      : 'पहिलो तल्ला (1st Floor)';
 
     $('#tenant_summary_name').text(displayName);
     $('#tenant_summary_username').text(`@${this.currentUsername}`);
@@ -1179,20 +1219,103 @@ const PortalDashboard = {
     $('#profile_full_name').text(displayName);
     $('#profile_username').text(`@${this.currentUsername}`);
     $('#profile_assigned_floors').text(assignedFloors);
-    $('#profile_base_rent').text(`रू ${(Number(latestBill.floorRent) || 15000).toLocaleString()}`);
-    $('#profile_elec_rate').text(`रू ${latestBill.ratePerUnit || 12} / Unit`);
+    $('#profile_base_rent').text(`रू ${(Number(latestBill ? latestBill.floorRent : 15000) || 15000).toLocaleString()}`);
+    $('#profile_elec_rate').text(`रू ${latestBill ? (latestBill.ratePerUnit || 12) : 12} / Unit`);
     $('#profile_phone').text((session && session.user && session.user.phone) || '९८०६०६०६६३');
 
     // Pre-fill profile update form
     $('#edit_profile_full_name').val(displayName);
     $('#edit_profile_phone').val((session && session.user && session.user.phone) || '९८०६०६०६६३');
 
-    // Update numbers on screen
-    $('#tenant_due_display, #tenant_due_display_2').text(`रू ${Number(displayDue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
-    $('#tenant_meter_reading').text(`${latestBill.currentMeterReading || 0} Units`);
-    $('#tenant_elec_rate_display').text(`रू ${latestBill.ratePerUnit || 12} / Unit`);
+    // ==========================================
+    // METRIC CARD 1: तिर्नुपर्ने कुल रकम (Total Due Metric Card)
+    // ==========================================
+    const $dueCard = $('#tenant_due_card').length ? $('#tenant_due_card') : $('#tenant_due_display').closest('.metric-glass-card');
+    const $dueDisplay = $('#tenant_due_display, #tenant_due_display_2');
+    const $dueIconWrap = $('#tenant_due_icon_wrap').length ? $('#tenant_due_icon_wrap') : $dueCard.find('.card-icon-wrap');
+    const $dueIcon = $('#tenant_due_icon').length ? $('#tenant_due_icon') : $dueCard.find('i');
+    const $dueMeta = $('#tenant_due_meta_desc').length ? $('#tenant_due_meta_desc') : $dueCard.find('.card-meta-desc');
 
-    // Network Status Card: Issue 1 Wi-Fi Setup
+    $dueDisplay.text(`रू ${Number(displayDue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
+
+    if (displayDue > 0) {
+      if (pendingBills.length > 0 && unpaidOnlyBills.length === 0) {
+        // Tenant sent proof -> awaiting admin approval
+        $dueCard.removeClass('border-alert').addClass('border-amber-soft');
+        $dueDisplay.removeClass('text-alert text-success').css('color', '#fbbf24');
+        $dueIconWrap.removeClass('bg-alert-soft bg-success-soft').addClass('bg-amber-soft');
+        $dueIcon.removeClass('text-alert text-success').css('color', '#fbbf24');
+        $dueIcon.attr('data-lucide', 'clock');
+        $dueMeta.text('भुक्तानी प्रमाण बुझाइएको (घरधनीको स्वीकृति बाँकी)');
+      } else {
+        // Active unpaid bill -> Alert state
+        $dueCard.addClass('border-alert').removeClass('border-success-soft border-amber-soft');
+        $dueDisplay.addClass('text-alert').removeClass('text-success').css('color', '');
+        $dueIconWrap.addClass('bg-alert-soft').removeClass('bg-success-soft bg-primary-soft bg-amber-soft');
+        $dueIcon.addClass('text-alert').removeClass('text-success text-primary').css('color', '');
+        $dueIcon.attr('data-lucide', 'credit-card');
+        $dueMeta.text('मासिक भाडा + बिजुली बिल (भुक्तानी गर्न बाँकी)');
+      }
+    } else if (hasTransactions && paidBills.length > 0) {
+      // Admin approved payment -> Reset to 0 with Success State
+      $dueCard.removeClass('border-alert border-amber-soft').addClass('border-success-soft');
+      $dueDisplay.removeClass('text-alert').addClass('text-success').css('color', '#86efac');
+      $dueIconWrap.removeClass('bg-alert-soft bg-primary-soft bg-amber-soft').addClass('bg-success-soft');
+      $dueIcon.removeClass('text-alert text-primary').addClass('text-success').css('color', '');
+      $dueIcon.attr('data-lucide', 'check-circle-2');
+      $dueMeta.text('कुनै रकम बाँकी छैन (सबै भाडा चुक्ता भयो)');
+    } else {
+      // First time / No transactions made by tenant -> Reset to 0 with Neutral State
+      $dueCard.removeClass('border-alert border-success-soft border-amber-soft');
+      $dueDisplay.removeClass('text-alert text-success').css('color', 'var(--text)');
+      $dueIconWrap.removeClass('bg-alert-soft bg-success-soft bg-amber-soft').addClass('bg-primary-soft');
+      $dueIcon.removeClass('text-alert text-success').addClass('text-primary').css('color', '');
+      $dueIcon.attr('data-lucide', 'credit-card');
+      $dueMeta.text('कुनै कारोबार छैन (हाल कुनै बाँकी बिल छैन)');
+    }
+
+    // ==========================================
+    // METRIC CARD 2: अन्तिम भुक्तानी स्थिति (Last Payment Status Card)
+    // ==========================================
+    let statusBadgeHtml = '';
+    let statusMetaDesc = 'Last Payment Status';
+
+    if (!hasTransactions) {
+      statusBadgeHtml = '<span class="badge" style="background: rgba(255,255,255,0.06); color: var(--muted); border: 1px solid var(--line); font-size: 11px;"><i data-lucide="minus" style="width:12px;height:12px"></i> कारोबार छैन (No Bills)</span>';
+      statusMetaDesc = 'कुनै कारोबार दर्ता गरिएको छैन';
+    } else {
+      const latestStatus = (latestBill.status || '').toLowerCase().trim();
+      if (latestStatus === 'paid via qr' || latestStatus === 'paid' || latestStatus === 'approved' || latestStatus === 'भुक्तानी स्वीकृत') {
+        statusBadgeHtml = '<span class="badge status-paid"><i data-lucide="check-circle-2" style="width:12px;height:12px"></i> भुक्तानी स्वीकृत</span>';
+        statusMetaDesc = 'अन्तिम भुक्तानी स्वीकृत (Paid via QR)';
+      } else if (latestStatus === 'pending_verification' || latestStatus === 'pending' || latestStatus === 'प्रमाणीकरण पेन्डिङ') {
+        statusBadgeHtml = '<span class="badge status-pending"><i data-lucide="clock" style="width:12px;height:12px"></i> प्रमाणीकरण पेन्डिङ</span>';
+        statusMetaDesc = 'घरधनीको रुजु बाँकी (Under Review)';
+      } else if (latestStatus === 'rejected') {
+        statusBadgeHtml = '<span class="badge status-rejected"><i data-lucide="x-circle" style="width:12px;height:12px"></i> अस्वीकृत - पुनः पठाउनुहोस्</span>';
+        statusMetaDesc = 'भुक्तानी अस्वीकृत भयो';
+      } else {
+        statusBadgeHtml = '<span class="badge status-unpaid"><i data-lucide="alert-circle" style="width:12px;height:12px"></i> UNPAID</span>';
+        statusMetaDesc = 'मासिक बिल भुक्तानी गर्न बाँकी';
+      }
+    }
+
+    $('#tenant_status_badge, #tenant_qr_status_badge').replaceWith(
+      $(statusBadgeHtml).attr('id', 'tenant_status_badge')
+    );
+    $('#tenant_status_meta_desc').text(statusMetaDesc);
+
+    // ==========================================
+    // METRIC CARD 3 & 4: Electricity Rate & Meter Reading
+    // ==========================================
+    const meterVal = latestBill && latestBill.currentMeterReading !== undefined ? latestBill.currentMeterReading : 0;
+    const rateVal = latestBill && latestBill.ratePerUnit !== undefined ? latestBill.ratePerUnit : 12;
+    $('#tenant_meter_reading').text(`${meterVal} Units`);
+    $('#tenant_elec_rate_display').text(`रू ${rateVal} / Unit`);
+
+    // ==========================================
+    // METRIC CARD 5: Wi-Fi Device Count
+    // ==========================================
     let tenantInfo = null;
     try {
       const storedTenants = JSON.parse(localStorage.getItem('jabegu_all_tenants') || '[]');
@@ -1229,15 +1352,11 @@ const PortalDashboard = {
       }
     } catch (_) {}
 
-    // Status Badge
-    const badgeHtml = this.getStatusBadge(latestBill.status);
-    $('#tenant_status_badge, #tenant_qr_status_badge').replaceWith(
-      $(badgeHtml).attr('id', 'tenant_status_badge')
-    );
-
     // Print Receipt button enable/disable check:
-    // Only available if at least one bill has status 'paid via QR' or 'paid' or 'approved'
-    const paidBill = bills.find(b => b.status === 'paid via QR' || b.status === 'paid' || b.status === 'approved' || b.status === 'भुक्तानी स्वीकृत');
+    const paidBill = bills.find(b => {
+      const s = (b.status || '').toLowerCase().trim();
+      return s === 'paid via qr' || s === 'paid' || s === 'approved' || s === 'भुक्तानी स्वीकृत';
+    });
     if (paidBill) {
       $('#btn_print_receipt_overview, #btn_print_receipt_invoices')
         .prop('disabled', false)

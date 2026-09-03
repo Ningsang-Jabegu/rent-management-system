@@ -267,22 +267,22 @@
 
             <!-- Modern Metrics Cards / Quick Overview Cards -->
             <div class="modern-metrics-row">
-              <div class="metric-glass-card border-alert">
-                <div class="card-icon-wrap bg-alert-soft">
-                  <i data-lucide="credit-card" class="text-alert"></i>
+              <div class="metric-glass-card border-alert" id="tenant_due_card">
+                <div class="card-icon-wrap bg-alert-soft" id="tenant_due_icon_wrap">
+                  <i data-lucide="credit-card" class="text-alert" id="tenant_due_icon"></i>
                 </div>
                 <div class="card-data">
                   <span class="card-label">तिर्नुपर्ने कुल रकम</span>
                   <h3 class="card-main-number text-alert" id="tenant_due_display">
                     रू ०.००
                   </h3>
-                  <span class="card-meta-desc">मासिक भाडा + बिजुली बिल</span>
+                  <span class="card-meta-desc" id="tenant_due_meta_desc">मासिक भाडा + बिजुली बिल</span>
                 </div>
               </div>
 
-              <div class="metric-glass-card">
-                <div class="card-icon-wrap bg-success-soft">
-                  <i data-lucide="shield-check" class="text-success"></i>
+              <div class="metric-glass-card" id="tenant_status_card">
+                <div class="card-icon-wrap bg-success-soft" id="tenant_status_icon_wrap">
+                  <i data-lucide="shield-check" class="text-success" id="tenant_status_icon"></i>
                 </div>
                 <div class="card-data">
                   <span class="card-label">अन्तिम भुक्तानी स्थिति</span>
@@ -291,7 +291,7 @@
                       <i data-lucide="clock"></i> PENDING
                     </span>
                   </div>
-                  <span class="card-meta-desc">Last Payment Status</span>
+                  <span class="card-meta-desc" id="tenant_status_meta_desc">Last Payment Status</span>
                 </div>
               </div>
 

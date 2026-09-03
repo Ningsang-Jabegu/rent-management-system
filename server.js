@@ -27,7 +27,8 @@ function loadStore() {
     tenants: {},
     maintenanceRequests: [],
     notices: [],
-    profileRequests: []
+    profileRequests: [],
+    bills: []
   };
 }
 
@@ -403,6 +404,213 @@ app.post('/api/jabegu-rent-portal/admin/delete-notice', (req, res) => {
   store.notices = (store.notices || []).filter(n => n.id !== idToDelete);
   saveStore(store);
   return res.json({ success: true, message: 'Notice deleted successfully' });
+});
+
+// 7. Bills & Payment Lifecycle Management
+
+// A. Rentee: Fetch tenant bills
+app.get('/api/jabegu-rent-portal/rentee/my-bills/:username', async (req, res) => {
+  const store = loadStore();
+  store.bills = store.bills || [];
+  const u = String(req.params.username || '').trim().toLowerCase();
+
+  // Try fetching remote bills with short timeout to sync any external updates
+  try {
+    const remoteRes = await axios.get(`${REMOTE_API_BASE}/rentee/my-bills/${encodeURIComponent(u)}`, { timeout: 3500 });
+    const remoteList = (remoteRes.data && Array.isArray(remoteRes.data.bills)) ? remoteRes.data.bills : (Array.isArray(remoteRes.data) ? remoteRes.data : []);
+    remoteList.forEach(rb => {
+      const existing = store.bills.find(b => b.id === rb.id);
+      if (!existing) {
+        store.bills.push(rb);
+      } else if (!existing.statusOverride) {
+        existing.status = rb.status || existing.status;
+        if (rb.proofImage && !existing.proofImage) existing.proofImage = rb.proofImage;
+        if (rb.verifiedAt && !existing.verifiedAt) existing.verifiedAt = rb.verifiedAt;
+      }
+    });
+    saveStore(store);
+  } catch (err) {
+    // Graceful fallback to local store if remote is slow or offline
+  }
+
+  const userBills = (store.bills || []).filter(b => String(b.tenantUsername || '').trim().toLowerCase() === u);
+  return res.json({ success: true, bills: userBills });
+});
+
+// B. Admin: Generate Monthly Bill
+app.post('/api/jabegu-rent-portal/admin/generate-bill', async (req, res) => {
+  const { tenantUsername, currentMeterReading, ratePerUnit, floorRent } = req.body || {};
+  if (!tenantUsername) {
+    return res.status(400).json({ error: 'Tenant username is required.' });
+  }
+
+  const store = loadStore();
+  store.bills = store.bills || [];
+  const u = String(tenantUsername).trim().toLowerCase();
+  const tenant = (store.tenants && store.tenants[u]) || {};
+
+  // Find previous meter reading from this tenant's previous bills
+  const userBills = store.bills.filter(b => String(b.tenantUsername || '').trim().toLowerCase() === u);
+  const prevReading = userBills.length > 0 ? (Number(userBills[0].currentMeterReading) || 0) : 0;
+  const currReading = Number(currentMeterReading) || prevReading;
+  const units = Math.max(0, currReading - prevReading);
+  const rate = Number(ratePerUnit) || 12;
+  const elecAmount = units * rate;
+  const rent = Number(floorRent) || Number(tenant.floorRent) || 15000;
+  const totalAmount = rent + elecAmount;
+
+  const newBill = {
+    id: `BILL-${Date.now()}`,
+    tenantUsername: u,
+    tenantFullName: tenant.fullName || tenant.name || u,
+    floors: tenant.floor || ['1st Floor'],
+    previousMeterReading: prevReading,
+    currentMeterReading: currReading,
+    unitsConsumed: units,
+    ratePerUnit: rate,
+    electricityAmount: elecAmount,
+    floorRent: rent,
+    totalAmount: totalAmount,
+    status: 'unpaid',
+    proofImage: null,
+    createdAt: new Date().toISOString()
+  };
+
+  store.bills.unshift(newBill);
+  saveStore(store);
+
+  // Synchronize with remote in background
+  axios.post(`${REMOTE_API_BASE}/admin/generate-bill`, req.body, { timeout: 8000 }).catch(err => {
+    console.warn('Remote generate-bill sync failed, persisted locally:', err.message);
+  });
+
+  return res.json({
+    success: true,
+    message: 'मासिक बिल सफलतापूर्वक जारी गरियो',
+    bill: newBill
+  });
+});
+
+// C. Rentee: Submit Payment Proof
+app.post('/api/jabegu-rent-portal/rentee/submit-proof', async (req, res) => {
+  const { billId, base64Image } = req.body || {};
+  if (!billId) {
+    return res.status(400).json({ error: 'Bill ID is required.' });
+  }
+
+  const store = loadStore();
+  store.bills = store.bills || [];
+  const bill = store.bills.find(b => b.id === billId);
+  if (bill) {
+    bill.status = 'pending_verification';
+    bill.proofImage = base64Image || bill.proofImage;
+    bill.submittedAt = new Date().toISOString();
+    saveStore(store);
+  }
+
+  // Forward to remote in background
+  axios.post(`${REMOTE_API_BASE}/rentee/submit-proof`, req.body, { timeout: 8000 }).catch(err => {
+    console.warn('Remote submit-proof sync failed, persisted locally:', err.message);
+  });
+
+  return res.json({
+    success: true,
+    message: 'भुक्तानी प्रमाण दर्ता भयो'
+  });
+});
+
+// D. Admin: Verify Payment (Approve / Reject)
+app.post('/api/jabegu-rent-portal/admin/verify-payment', async (req, res) => {
+  const { billId, isApproved } = req.body || {};
+  if (!billId) {
+    return res.status(400).json({ error: 'Bill ID is required.' });
+  }
+
+  const store = loadStore();
+  store.bills = store.bills || [];
+  const bill = store.bills.find(b => b.id === billId);
+  if (bill) {
+    bill.status = isApproved ? 'paid via QR' : 'rejected';
+    bill.statusOverride = true;
+    if (isApproved) {
+      bill.verifiedAt = new Date().toISOString();
+    }
+    saveStore(store);
+  }
+
+  // Forward to remote in background
+  axios.post(`${REMOTE_API_BASE}/admin/verify-payment`, req.body, { timeout: 8000 }).catch(err => {
+    console.warn('Remote verify-payment sync failed, persisted locally:', err.message);
+  });
+
+  return res.json({
+    success: true,
+    message: isApproved ? 'Status updated to paid via QR' : 'Payment rejected'
+  });
+});
+
+// E. Admin: Dashboard Overview (Aggregates and metrics)
+app.get('/api/jabegu-rent-portal/admin/dashboard-overview', async (req, res) => {
+  const store = loadStore();
+  store.bills = store.bills || [];
+
+  let remoteOverview = null;
+  try {
+    const remoteRes = await axios.get(`${REMOTE_API_BASE}/admin/dashboard-overview`, { timeout: 3500 });
+    remoteOverview = remoteRes.data;
+  } catch (err) {
+    // Gracefully handle remote failure
+  }
+
+  if (remoteOverview && Array.isArray(remoteOverview.allInvoices)) {
+    remoteOverview.allInvoices.forEach(rb => {
+      const existing = store.bills.find(b => b.id === rb.id);
+      if (!existing) {
+        store.bills.push(rb);
+      } else if (!existing.statusOverride) {
+        existing.status = rb.status || existing.status;
+        if (rb.proofImage && !existing.proofImage) existing.proofImage = rb.proofImage;
+      }
+    });
+    saveStore(store);
+  }
+
+  const allInvoices = store.bills;
+  const verificationQueue = allInvoices.filter(b => {
+    const s = (b.status || '').toLowerCase().trim();
+    return s === 'pending_verification' || s === 'pending' || (b.proofImage && s !== 'paid via qr' && s !== 'paid' && s !== 'approved');
+  });
+
+  const totalInvoiced = allInvoices.reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
+  const totalCollected = allInvoices
+    .filter(b => {
+      const s = (b.status || '').toLowerCase().trim();
+      return s === 'paid via qr' || s === 'paid' || s === 'approved' || s === 'भुक्तानी स्वीकृत';
+    })
+    .reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
+  const totalPendingDues = allInvoices
+    .filter(b => {
+      const s = (b.status || '').toLowerCase().trim();
+      return s === 'unpaid' || s === 'rejected';
+    })
+    .reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
+
+  const stats = {
+    activeTenants: Object.keys(store.tenants || {}).length || 2,
+    totalInvoiced,
+    totalCollected,
+    totalPendingDues,
+    pendingVerificationCount: verificationQueue.length
+  };
+
+  return res.json({
+    success: true,
+    stats,
+    allInvoices,
+    allBills: allInvoices,
+    verificationQueue,
+    monthlyIncome: (remoteOverview && remoteOverview.monthlyIncome) || []
+  });
 });
 
 // Forward all other /api/jabegu-rent-portal requests to remote gateway
