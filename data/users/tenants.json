@@ -1,0 +1,33 @@
+[
+  {
+    "id": "tenant_1788394537614",
+    "username": "fanso",
+    "password_hash": "$2a$10$W9i1VXP6rNjDlP2GoYzhv.jCyo6EiRQHVJ2Btuy3IQTLh6AsqAND.",
+    "full_name": "Fanso Seling",
+    "floor": [
+      "3rd Floor"
+    ],
+    "floorRent": 20000,
+    "status": "सक्रिय",
+    "role": "rentee",
+    "updatedAt": "2026-09-03T11:58:18.079Z"
+  },
+  {
+    "id": "tenant_1788408407005",
+    "username": "aanayas",
+    "password_hash": "$2a$10$Lw/5Umi9ygao1L0wURtDN.uLkgEpRpM9z293nn6RrMMnY90SUXgDq",
+    "full_name": "Aanayas Rai",
+    "floor": [
+      "Ground Floor",
+      "2nd Floor"
+    ],
+    "floorRent": 32000,
+    "usesSharedWifi": false,
+    "wifiDeviceCount": null,
+    "status": "सक्रिय",
+    "role": "rentee",
+    "pendingProfileUpdate": null,
+    "createdAt": "2026-09-03T04:06:47.005Z",
+    "updatedAt": "2026-09-03T11:58:29.777Z"
+  }
+]

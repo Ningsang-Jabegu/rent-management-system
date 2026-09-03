@@ -2190,8 +2190,20 @@ const PortalDashboard = {
       let initialVal = '';
 
       if (Array.isArray(savedReadings)) {
-        const found = savedReadings.find(r => r.id === meterId || r.floor === fl);
-        if (found && found.reading !== undefined) initialVal = found.reading;
+        if (typeof savedReadings[idx] === 'number') {
+          initialVal = savedReadings[idx];
+        } else {
+          const found = savedReadings.find(r => r && (r.id === meterId || r.floor === fl));
+          if (found && found.reading !== undefined) {
+            initialVal = found.reading;
+          } else if (found && typeof found === 'number') {
+            initialVal = found;
+          } else if (savedReadings[idx] !== undefined) {
+            initialVal = (typeof savedReadings[idx] === 'object' && savedReadings[idx] !== null)
+              ? savedReadings[idx].reading
+              : savedReadings[idx];
+          }
+        }
       } else if (typeof savedReadings === 'object' && savedReadings !== null) {
         if (savedReadings[meterId] !== undefined) initialVal = savedReadings[meterId];
         else if (savedReadings[fl] !== undefined) initialVal = savedReadings[fl];
@@ -2297,8 +2309,18 @@ const PortalDashboard = {
       $(`input[name="tenant_floors"][value="${fl}"]`).prop('checked', true);
     });
 
-    // Populate multi-floor meters
-    this.onTenantFloorsChanged(tenant.meterReadings || tenant.currentMeterReading);
+    // Populate multi-floor meters (from MeterReading in rates.json or meterReadings)
+    const mr = tenant.MeterReading || (tenant.rates && tenant.rates.MeterReading);
+    let readingsToPass = tenant.meterReadings;
+    if (mr) {
+      const activeVals = (Array.isArray(mr.current) && mr.current.length > 0)
+        ? mr.current
+        : ((Array.isArray(mr.previous) && mr.previous.length > 0) ? mr.previous : mr.first);
+      if (Array.isArray(activeVals) && activeVals.length > 0) {
+        readingsToPass = activeVals;
+      }
+    }
+    this.onTenantFloorsChanged(readingsToPass || tenant.currentMeterReading);
 
     // Rent
     $('#tenant_input_floorrent').val(tenant.floorRent !== undefined ? tenant.floorRent : 15000);
@@ -2423,6 +2445,7 @@ const PortalDashboard = {
   // 4. Generate Monthly Bill Modal & Action
   openGenerateBillModal: function () {
     $('#generate_bill_form')[0].reset();
+    $('#multi_meter_fields_wrap').removeAttr('data-loaded-for').empty();
     $('#bill_rate_per_unit').val(12);
     $('#bill_floor_rent').val(15000);
     this.recalculateBillModal();
@@ -2452,18 +2475,31 @@ const PortalDashboard = {
 
   recalculateBillModal: function () {
     const tenantUsername = $('#bill_tenant_select').val();
-    const rate = Number($('#bill_rate_per_unit').val()) || 12;
-    const floorRent = Number($('#bill_floor_rent').val()) || 15000;
-
     const tenant = (this.currentTenants || []).find(t => t.username === tenantUsername);
     const floors = (tenant && Array.isArray(tenant.floor)) ? tenant.floor : ((tenant && tenant.floor) ? [tenant.floor] : ['1st Floor']);
     const isMulti = floors.length > 1;
+
+    const tenantRate = (tenant && tenant.electricityRatePerUnit) || (tenant && tenant.rates && tenant.rates.electricityRatePerUnit) || 12;
+    const tenantRent = (tenant && tenant.floorRent !== undefined) ? tenant.floorRent : 15000;
+
+    const rate = Number($('#bill_rate_per_unit').val()) || tenantRate;
+    const floorRent = Number($('#bill_floor_rent').val()) || tenantRent;
 
     // Find previous bills for this tenant sorted chronologically descending
     const tenantBills = (this.currentBills || [])
       .filter(b => b.tenantUsername && b.tenantUsername.toLowerCase() === (tenantUsername || '').toLowerCase())
       .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
     const latestBill = tenantBills[0];
+
+    // Read previous readings from MeterReading in rates.json
+    const mr = (tenant && tenant.MeterReading) || (tenant && tenant.rates && tenant.rates.MeterReading);
+    const dbPrevList = mr ? (
+      (Array.isArray(mr.current) && mr.current.length > 0) ? mr.current : (
+        (Array.isArray(mr.previous) && mr.previous.length > 0) ? mr.previous : (
+          Array.isArray(mr.first) ? mr.first : []
+        )
+      )
+    ) : [];
 
     let totalUnits = 0;
 
@@ -2477,12 +2513,17 @@ const PortalDashboard = {
         $wrap.attr('data-loaded-for', tenantUsername);
         $wrap.empty();
 
+        $('#bill_rate_per_unit').val(tenantRate);
+        $('#bill_floor_rent').val(tenantRent);
+
         const prevBreakdown = (latestBill && latestBill.meterBreakdown) || [];
 
         floors.forEach((fl, idx) => {
           const mId = `m${idx + 1}`;
           let prevVal = 0;
-          if (prevBreakdown[idx] && prevBreakdown[idx].curr !== undefined) {
+          if (dbPrevList[idx] !== undefined) {
+            prevVal = Number(dbPrevList[idx]) || 0;
+          } else if (prevBreakdown[idx] && prevBreakdown[idx].curr !== undefined) {
             prevVal = Number(prevBreakdown[idx].curr) || 0;
           } else if (latestBill && typeof latestBill.currentMeterReading === 'string' && latestBill.currentMeterReading.includes(mId)) {
             const match = latestBill.currentMeterReading.match(new RegExp(`(\\d+)\\s*\\(${mId}\\)`));
@@ -2529,11 +2570,13 @@ const PortalDashboard = {
         unitSummaryParts.push(`${u} (${mId})`);
       });
 
-      const elecAmount = totalUnits * rate;
-      const total = elecAmount + floorRent;
+      const currentRate = Number($('#bill_rate_per_unit').val()) || tenantRate;
+      const currentRent = Number($('#bill_floor_rent').val()) || tenantRent;
+      const elecAmount = totalUnits * currentRate;
+      const total = elecAmount + currentRent;
       $('#calc_preview_units').text(`${totalUnits} Units (${unitSummaryParts.join(' + ')})`);
       $('#calc_preview_elec').text(`रू ${elecAmount.toLocaleString()}`);
-      $('#calc_preview_rent').text(`रू ${floorRent.toLocaleString()}`);
+      $('#calc_preview_rent').text(`रू ${currentRent.toLocaleString()}`);
       $('#calc_preview_total').text(`रू ${total.toLocaleString()}`);
 
     } else {
@@ -2541,17 +2584,21 @@ const PortalDashboard = {
       $('#multi_meter_block').addClass('hide');
       $('#multi_meter_fields_wrap').removeAttr('data-loaded-for').empty();
 
-      const prevReading = latestBill ? (Number(latestBill.currentMeterReading) || 0) : 0;
+      const prevReading = (dbPrevList[0] !== undefined)
+        ? Number(dbPrevList[0]) || 0
+        : (latestBill ? (Number(latestBill.currentMeterReading) || 0) : 0);
       $('#bill_previous_reading_display').text(`${prevReading} Units`);
 
       const currentReading = Number($('#bill_current_reading').val()) || prevReading;
       totalUnits = Math.max(0, currentReading - prevReading);
-      const elecAmount = totalUnits * rate;
-      const total = elecAmount + floorRent;
+      const currentRate = Number($('#bill_rate_per_unit').val()) || tenantRate;
+      const currentRent = Number($('#bill_floor_rent').val()) || tenantRent;
+      const elecAmount = totalUnits * currentRate;
+      const total = elecAmount + currentRent;
 
       $('#calc_preview_units').text(`${totalUnits} Units`);
       $('#calc_preview_elec').text(`रू ${elecAmount.toLocaleString()}`);
-      $('#calc_preview_rent').text(`रू ${floorRent.toLocaleString()}`);
+      $('#calc_preview_rent').text(`रू ${currentRent.toLocaleString()}`);
       $('#calc_preview_total').text(`रू ${total.toLocaleString()}`);
     }
   },

@@ -11,8 +11,18 @@
         "1st Floor"
       ],
       "floorRent": 15000,
-      "usesSharedWifi": true,
-      "wifiDeviceCount": 2
+      "usesSharedWifi": false,
+      "wifiDeviceCount": 0,
+      "full_name": "Aanayas",
+      "meterReadings": [
+        {
+          "id": "m1",
+          "floor": "1st Floor",
+          "reading": 0
+        }
+      ],
+      "currentMeterReading": 0,
+      "meterBreakdownText": "0 Units"
     },
     "fanso": {
       "username": "fanso",
@@ -21,11 +31,27 @@
       "password": "123",
       "status": "सक्रिय",
       "floor": [
+        "1st Floor",
         "3rd Floor"
       ],
       "floorRent": 20000,
-      "usesSharedWifi": true,
-      "wifiDeviceCount": 1
+      "usesSharedWifi": false,
+      "wifiDeviceCount": 0,
+      "full_name": "Fanso Seling",
+      "meterReadings": [
+        {
+          "id": "m1",
+          "floor": "1st Floor",
+          "reading": 5
+        },
+        {
+          "id": "m2",
+          "floor": "3rd Floor",
+          "reading": 15
+        }
+      ],
+      "currentMeterReading": 20,
+      "meterBreakdownText": "[5 (m1), 15 (m2)]"
     }
   },
   "maintenanceRequests": [

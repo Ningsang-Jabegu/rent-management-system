@@ -3,6 +3,14 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import axios from 'axios';
+import {
+  getRatesDb,
+  saveRatesDb,
+  getTenantsDb,
+  saveTenantsDb,
+  getTransactionsDb,
+  saveTransactionsDb
+} from './githubDb.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -224,68 +232,120 @@ app.post('/api/jabegu-rent-portal/admin/toggle-tenant-status', async (req, res) 
   });
 });
 
-// 6. Fetch Tenants (Merged remote + store.json)
+// 6. Fetch Tenants (Merged live GitHub repo + remote API + store.json)
 app.get('/api/jabegu-rent-portal/admin/tenants', async (req, res) => {
   const store = loadStore();
-  let remoteList = [];
+  let tenantsList = [];
+  let ratesData = {};
 
   try {
-    const remoteRes = await axios.get(`${REMOTE_API_BASE}/admin/tenants`, { timeout: 4000 });
-    if (Array.isArray(remoteRes.data)) remoteList = remoteRes.data;
-    else if (remoteRes.data && Array.isArray(remoteRes.data.tenants)) remoteList = remoteRes.data.tenants;
+    [tenantsList, ratesData] = await Promise.all([
+      getTenantsDb().catch(() => []),
+      getRatesDb().catch(() => ({}))
+    ]);
   } catch (err) {
-    console.warn('Could not fetch remote tenants, using local store:', err.message);
+    console.warn('GitHub DB fetch error:', err.message);
   }
 
-  const merged = remoteList.map(t => {
-    const u = String(t.username).trim().toLowerCase();
-    const local = store.tenants[u];
-    if (local) {
-      return {
-        ...t,
-        status: local.status || t.status || 'सक्रिय',
-        fullName: local.fullName || t.fullName || t.full_name,
-        full_name: local.fullName || t.full_name || t.fullName,
-        phone: local.phone || t.phone,
-        floor: local.floor || t.floor || ['1st Floor'],
-        floorRent: (local.floorRent !== undefined) ? local.floorRent : (t.floorRent || 15000),
-        usesSharedWifi: (local.usesSharedWifi !== undefined) ? local.usesSharedWifi : (t.usesSharedWifi || false),
-        wifiDeviceCount: (local.wifiDeviceCount !== undefined) ? local.wifiDeviceCount : (t.wifiDeviceCount || 0),
-        meterReadings: local.meterReadings || t.meterReadings || [],
-        currentMeterReading: (local.currentMeterReading !== undefined) ? local.currentMeterReading : t.currentMeterReading,
-        meterBreakdownText: local.meterBreakdownText || t.meterBreakdownText || ''
-      };
-    }
-    return t;
-  });
+  // Also query remote API as fallback
+  let remoteList = [];
+  try {
+    const remoteRes = await axios.get(`${REMOTE_API_BASE}/admin/tenants`, { timeout: 3500 });
+    if (Array.isArray(remoteRes.data)) remoteList = remoteRes.data;
+    else if (remoteRes.data && Array.isArray(remoteRes.data.tenants)) remoteList = remoteRes.data.tenants;
+  } catch (_) {}
 
-  // Include any local tenants not present on remote
-  for (const [key, localT] of Object.entries(store.tenants)) {
-    const exists = merged.some(m => String(m.username).trim().toLowerCase() === key);
-    if (!exists) {
-      merged.push({
+  // Base list prioritized: GitHub tenantsList first, then remoteList, then local store
+  const combinedMap = new Map();
+  for (const t of tenantsList) {
+    if (t && t.username) combinedMap.set(String(t.username).trim().toLowerCase(), { ...t });
+  }
+  for (const t of remoteList) {
+    if (t && t.username) {
+      const u = String(t.username).trim().toLowerCase();
+      if (!combinedMap.has(u)) combinedMap.set(u, { ...t });
+      else {
+        // Overlay any missing attributes
+        const existing = combinedMap.get(u);
+        combinedMap.set(u, { ...t, ...existing });
+      }
+    }
+  }
+  for (const [key, localT] of Object.entries(store.tenants || {})) {
+    if (!combinedMap.has(key)) {
+      combinedMap.set(key, {
         id: `tenant_${key}`,
-        username: localT.username,
-        full_name: localT.fullName || localT.username,
-        fullName: localT.fullName || localT.username,
-        phone: localT.phone || '९८५१XXXXXX',
+        username: localT.username || key,
+        full_name: localT.fullName || localT.username || key,
+        fullName: localT.fullName || localT.username || key,
+        phone: localT.phone || '',
         floor: localT.floor || ['1st Floor'],
         floorRent: localT.floorRent || 15000,
         usesSharedWifi: localT.usesSharedWifi || false,
         wifiDeviceCount: localT.wifiDeviceCount || 0,
-        meterReadings: localT.meterReadings || [],
-        currentMeterReading: localT.currentMeterReading,
-        meterBreakdownText: localT.meterBreakdownText || '',
         status: localT.status || 'सक्रिय',
         role: 'rentee'
       });
     }
   }
 
+  const merged = Array.from(combinedMap.values()).map(t => {
+    const u = String(t.username).trim().toLowerCase();
+    const local = (store.tenants && store.tenants[u]) || {};
+    const rateInfo = ratesData[u] || {};
+    const mr = rateInfo.MeterReading || null;
+    const electricityRatePerUnit = rateInfo.electricityRatePerUnit || 12;
+
+    let activeReadings = [];
+    if (mr) {
+      if (Array.isArray(mr.current) && mr.current.length > 0) {
+        activeReadings = mr.current;
+      } else if (Array.isArray(mr.previous) && mr.previous.length > 0) {
+        activeReadings = mr.previous;
+      } else if (Array.isArray(mr.first) && mr.first.length > 0) {
+        activeReadings = mr.first;
+      }
+    }
+
+    const floors = Array.isArray(t.floor) ? t.floor : (t.floor ? [t.floor] : (local.floor || ['1st Floor']));
+    const meterReadings = activeReadings.map((val, idx) => ({
+      id: `m${idx + 1}`,
+      reading: val,
+      floor: floors[idx] || `Flat ${idx + 1}`
+    }));
+
+    const totalMeterReading = activeReadings.reduce((sum, v) => sum + (Number(v) || 0), 0);
+    let meterBreakdownText = '';
+    if (meterReadings.length > 1) {
+      meterBreakdownText = `[${meterReadings.map(m => `${m.reading} (${m.id})`).join(', ')}]`;
+    } else if (meterReadings.length === 1) {
+      meterBreakdownText = `${meterReadings[0].reading} Units`;
+    }
+
+    return {
+      ...t,
+      status: local.status || t.status || 'सक्रिय',
+      fullName: local.fullName || t.fullName || t.full_name || u,
+      full_name: local.fullName || t.full_name || t.fullName || u,
+      phone: local.phone || t.phone || '',
+      floor: floors,
+      floorRent: (local.floorRent !== undefined) ? local.floorRent : (t.floorRent !== undefined ? t.floorRent : 15000),
+      usesSharedWifi: (local.usesSharedWifi !== undefined) ? local.usesSharedWifi : (t.usesSharedWifi || false),
+      wifiDeviceCount: (local.wifiDeviceCount !== undefined) ? local.wifiDeviceCount : (t.wifiDeviceCount || 0),
+      MeterReading: mr,
+      electricityRatePerUnit,
+      rates: rateInfo,
+      meterReadings: meterReadings.length > 0 ? meterReadings : (local.meterReadings || t.meterReadings || []),
+      currentMeterReading: activeReadings.length > 0 ? totalMeterReading : (local.currentMeterReading !== undefined ? local.currentMeterReading : t.currentMeterReading),
+      meterBreakdownText: meterBreakdownText || local.meterBreakdownText || t.meterBreakdownText || '',
+      role: 'rentee'
+    };
+  });
+
   return res.json({ success: true, tenants: merged });
 });
 
-// 6.5. Admin Edit Tenant Details
+// 6.5. Admin Edit Tenant Details (Synchronized to GitHub rates.json, tenants.json, local store, remote API)
 app.post(['/api/jabegu-rent-portal/admin/edit-tenant', '/api/jabegu-rent-portal/admin/update-tenant'], async (req, res) => {
   const {
     username,
@@ -300,15 +360,16 @@ app.post(['/api/jabegu-rent-portal/admin/edit-tenant', '/api/jabegu-rent-portal/
     meters,
     meterReadings,
     currentMeterReading,
-    meterBreakdownText
+    meterBreakdownText,
+    electricityRatePerUnit
   } = req.body || {};
 
   if (!username) {
     return res.status(400).json({ error: 'प्रयोगकर्ता नाम (Username) आवश्यक छ।' });
   }
 
-  const store = loadStore();
   const u = String(username).trim().toLowerCase();
+  const store = loadStore();
   if (!store.tenants[u]) {
     store.tenants[u] = { username: u };
   }
@@ -345,6 +406,66 @@ app.post(['/api/jabegu-rent-portal/admin/edit-tenant', '/api/jabegu-rent-portal/
 
   saveStore(store);
 
+  // Extract meter reading units into array [n1, n2, ...]
+  let meterUnits = [];
+  if (Array.isArray(meters) && meters.length > 0) {
+    meterUnits = meters.map(m => Number(m.reading) || 0);
+  } else if (Array.isArray(meterReadings) && meterReadings.length > 0) {
+    meterUnits = meterReadings.map(m => (typeof m === 'object' ? Number(m.reading) || 0 : Number(m) || 0));
+  } else if (currentMeterReading !== undefined && currentMeterReading !== null && currentMeterReading !== '') {
+    meterUnits = [Number(currentMeterReading) || 0];
+  }
+
+  // 1. Persist to GitHub data/settings/rates.json
+  let savedRatesData = null;
+  try {
+    const ratesData = await getRatesDb();
+    const existingRate = ratesData[u] || {};
+    const rateVal = Number(electricityRatePerUnit) || Number(existingRate.electricityRatePerUnit) || 12;
+
+    if (meterUnits.length > 0) {
+      ratesData[u] = {
+        electricityRatePerUnit: rateVal,
+        updatedAt: new Date().toISOString(),
+        MeterReading: {
+          first: meterUnits,
+          previous: meterUnits,
+          current: []
+        }
+      };
+      await saveRatesDb(ratesData, `Update rates.json meter readings for ${u}`);
+      savedRatesData = ratesData[u];
+    }
+  } catch (err) {
+    console.error('Error saving rates.json to GitHub:', err.message);
+  }
+
+  // 2. Persist to GitHub data/users/tenants.json
+  try {
+    const tenantsList = await getTenantsDb();
+    let tMatch = tenantsList.find(t => String(t.username).trim().toLowerCase() === u);
+    if (!tMatch) {
+      tMatch = { id: `tenant_${u}`, username: u, role: 'rentee' };
+      tenantsList.push(tMatch);
+    }
+    if (fullName) {
+      tMatch.full_name = fullName.trim();
+      tMatch.fullName = fullName.trim();
+    }
+    if (phone !== undefined) tMatch.phone = phone ? phone.trim() : '';
+    if (floor) {
+      tMatch.floor = Array.isArray(floor) ? floor : [floor];
+    }
+    if (floorRent !== undefined) tMatch.floorRent = Number(floorRent) || 15000;
+    if (usesSharedWifi !== undefined) tMatch.usesSharedWifi = Boolean(usesSharedWifi);
+    if (wifiDeviceCount !== undefined) tMatch.wifiDeviceCount = Number(wifiDeviceCount) || 0;
+    if (status) tMatch.status = status;
+    tMatch.updatedAt = new Date().toISOString();
+    await saveTenantsDb(tenantsList, `Update tenant profile for ${u}`);
+  } catch (err) {
+    console.error('Error saving tenants.json to GitHub:', err.message);
+  }
+
   if (status) {
     axios.post(`${REMOTE_API_BASE}/admin/toggle-tenant-status`, { username: u, status }).catch(() => {});
   }
@@ -352,38 +473,101 @@ app.post(['/api/jabegu-rent-portal/admin/edit-tenant', '/api/jabegu-rent-portal/
   return res.json({
     success: true,
     message: `डेरावाला @${u} को विवरण सफलतापूर्वक अद्यावधिक गरियो!`,
-    tenant
+    tenant: {
+      ...tenant,
+      rates: savedRatesData,
+      MeterReading: savedRatesData ? savedRatesData.MeterReading : undefined
+    }
   });
 });
 
-// 6.6. Rentee Profile Fetch
+// 6.6. Rentee Profile Fetch (Synchronized with live GitHub repo)
 app.get('/api/jabegu-rent-portal/rentee/profile/:username', async (req, res) => {
   const store = loadStore();
   const u = String(req.params.username || '').trim().toLowerCase();
 
-  let tenant = store.tenants[u] || null;
-  try {
-    const remoteRes = await axios.get(`${REMOTE_API_BASE}/admin/tenants`, { timeout: 3500 });
-    const list = (remoteRes.data && Array.isArray(remoteRes.data.tenants)) ? remoteRes.data.tenants : (Array.isArray(remoteRes.data) ? remoteRes.data : []);
-    const match = list.find(t => String(t.username).trim().toLowerCase() === u);
-    if (match) {
-      tenant = {
-        ...match,
-        ...(tenant || {}),
-        fullName: (tenant && tenant.fullName) || match.fullName || match.full_name,
-        full_name: (tenant && tenant.fullName) || match.full_name || match.fullName,
-        floor: (tenant && tenant.floor) || match.floor,
-        floorRent: (tenant && tenant.floorRent !== undefined) ? tenant.floorRent : match.floorRent,
-        status: (tenant && tenant.status) || match.status || 'सक्रिय'
-      };
-    }
-  } catch (_) {}
+  let [tenantsList, ratesData] = await Promise.all([
+    getTenantsDb().catch(() => []),
+    getRatesDb().catch(() => ({}))
+  ]);
+
+  let tenant = tenantsList.find(t => String(t.username).trim().toLowerCase() === u);
+  const local = (store.tenants && store.tenants[u]) || {};
+
+  if (!tenant) {
+    // Fallback to remote API
+    try {
+      const remoteRes = await axios.get(`${REMOTE_API_BASE}/admin/tenants`, { timeout: 3500 });
+      const list = (remoteRes.data && Array.isArray(remoteRes.data.tenants)) ? remoteRes.data.tenants : (Array.isArray(remoteRes.data) ? remoteRes.data : []);
+      tenant = list.find(t => String(t.username).trim().toLowerCase() === u);
+    } catch (_) {}
+  }
+
+  if (!tenant && local.username) {
+    tenant = {
+      id: `tenant_${u}`,
+      username: u,
+      fullName: local.fullName || u,
+      full_name: local.fullName || u,
+      phone: local.phone || '',
+      floor: local.floor || ['1st Floor'],
+      floorRent: local.floorRent || 15000,
+      usesSharedWifi: local.usesSharedWifi || false,
+      wifiDeviceCount: local.wifiDeviceCount || 0,
+      status: local.status || 'सक्रिय',
+      role: 'rentee'
+    };
+  }
 
   if (!tenant) {
     return res.status(404).json({ error: 'डेरावाला भेटिएन।' });
   }
 
-  return res.json({ success: true, tenant });
+  const rateInfo = ratesData[u] || {};
+  const mr = rateInfo.MeterReading || null;
+  const electricityRatePerUnit = rateInfo.electricityRatePerUnit || 12;
+
+  let activeReadings = [];
+  if (mr) {
+    if (Array.isArray(mr.current) && mr.current.length > 0) {
+      activeReadings = mr.current;
+    } else if (Array.isArray(mr.previous) && mr.previous.length > 0) {
+      activeReadings = mr.previous;
+    } else if (Array.isArray(mr.first) && mr.first.length > 0) {
+      activeReadings = mr.first;
+    }
+  }
+
+  const floors = Array.isArray(tenant.floor) ? tenant.floor : (tenant.floor ? [tenant.floor] : (local.floor || ['1st Floor']));
+  const meterReadings = activeReadings.map((val, idx) => ({
+    id: `m${idx + 1}`,
+    reading: val,
+    floor: floors[idx] || `Flat ${idx + 1}`
+  }));
+
+  const totalMeterReading = activeReadings.reduce((sum, v) => sum + (Number(v) || 0), 0);
+
+  const merged = {
+    ...tenant,
+    fullName: local.fullName || tenant.fullName || tenant.full_name || u,
+    full_name: local.fullName || tenant.full_name || tenant.fullName || u,
+    phone: local.phone || tenant.phone || '',
+    floor: floors,
+    floorRent: local.floorRent !== undefined ? local.floorRent : (tenant.floorRent !== undefined ? tenant.floorRent : 15000),
+    usesSharedWifi: local.usesSharedWifi !== undefined ? local.usesSharedWifi : (tenant.usesSharedWifi || false),
+    wifiDeviceCount: local.wifiDeviceCount !== undefined ? local.wifiDeviceCount : (tenant.wifiDeviceCount || 0),
+    status: local.status || tenant.status || 'सक्रिय',
+    MeterReading: mr,
+    electricityRatePerUnit,
+    rates: rateInfo,
+    meterReadings: meterReadings.length > 0 ? meterReadings : (local.meterReadings || []),
+    currentMeterReading: activeReadings.length > 0 ? totalMeterReading : (local.currentMeterReading || 0),
+    meterBreakdownText: activeReadings.length > 1
+      ? `[${activeReadings.map((v, i) => `${v} (m${i + 1})`).join(', ')}]`
+      : `${totalMeterReading} Units`
+  };
+
+  return res.json({ success: true, tenant: merged });
 });
 
 // 7. Profile Update Requests
@@ -521,34 +705,28 @@ app.post('/api/jabegu-rent-portal/admin/delete-notice', (req, res) => {
 
 // 7. Bills & Payment Lifecycle Management
 
-// A. Rentee: Fetch tenant bills
+// A. Rentee: Fetch tenant bills (Synchronized directly with GitHub transactions.json)
 app.get('/api/jabegu-rent-portal/rentee/my-bills/:username', async (req, res) => {
   const store = loadStore();
-  store.bills = store.bills || [];
   const u = String(req.params.username || '').trim().toLowerCase();
 
-  // Fetch remote bills from production DB
+  let transactions = [];
   try {
-    const remoteRes = await axios.get(`${REMOTE_API_BASE}/rentee/my-bills/${encodeURIComponent(u)}`, { timeout: 4000 });
-    if (remoteRes.data && remoteRes.data.success) {
-      const remoteList = Array.isArray(remoteRes.data.bills) ? remoteRes.data.bills : (Array.isArray(remoteRes.data) ? remoteRes.data : []);
-      // Strictly sync with backend DB: replace bills for this tenant with DB's current list
-      const otherTenantBills = (store.bills || []).filter(b => String(b.tenantUsername || '').trim().toLowerCase() !== u);
-      store.bills = [...remoteList, ...otherTenantBills];
-      saveStore(store);
-      return res.json({ success: true, bills: remoteList });
-    }
+    transactions = await getTransactionsDb();
   } catch (err) {
-    console.warn('Could not fetch remote tenant bills, fallback to local store:', err.message);
+    console.warn('Could not fetch GitHub transactions:', err.message);
+    transactions = store.bills || [];
   }
 
-  const userBills = (store.bills || [])
+  // Filter bills for this tenant
+  const userBills = (transactions || [])
     .filter(b => String(b.tenantUsername || '').trim().toLowerCase() === u)
     .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
   return res.json({ success: true, bills: userBills });
 });
 
-// B. Admin: Generate Monthly Bill
+// B. Admin: Generate Monthly Bill (Updates rates.json and transactions.json in GitHub repo)
 app.post('/api/jabegu-rent-portal/admin/generate-bill', async (req, res) => {
   const { tenantUsername, currentMeterReading, ratePerUnit, floorRent, meters } = req.body || {};
   if (!tenantUsername) {
@@ -562,42 +740,52 @@ app.post('/api/jabegu-rent-portal/admin/generate-bill', async (req, res) => {
   const floors = Array.isArray(tenant.floor) ? tenant.floor : (tenant.floor ? [tenant.floor] : ['1st Floor']);
   const isMultiFlat = floors.length > 1;
 
-  // Find previous bills for this tenant sorted chronologically descending
-  const userBills = store.bills
-    .filter(b => String(b.tenantUsername || '').trim().toLowerCase() === u)
-    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  // 1. Fetch live rates and meter readings from GitHub data/settings/rates.json
+  let ratesData = {};
+  try {
+    ratesData = await getRatesDb();
+  } catch (err) {
+    console.error('Error fetching rates.json from GitHub:', err.message);
+  }
 
-  const rate = Number(ratePerUnit) || 12;
+  const tenantRate = ratesData[u] || {};
+  const mr = tenantRate.MeterReading || { first: [], previous: [], current: [] };
+  const rate = Number(ratePerUnit) || Number(tenantRate.electricityRatePerUnit) || 12;
   const rent = Number(floorRent) || Number(tenant.floorRent) || 15000;
+
+  // Determine previous readings from DB:
+  // If mr.current has values, the last recorded reading is in mr.current; otherwise mr.previous; otherwise mr.first
+  const dbPrev = (Array.isArray(mr.current) && mr.current.length > 0)
+    ? mr.current
+    : ((Array.isArray(mr.previous) && mr.previous.length > 0) ? mr.previous : (Array.isArray(mr.first) ? mr.first : []));
 
   let prevReadingDisplay = '0';
   let currReadingDisplay = '0';
   let totalUnits = 0;
   let meterBreakdown = null;
+  const newCurrUnits = [];
 
   if (isMultiFlat || (Array.isArray(meters) && meters.length > 1)) {
-    // Multi-flat meters (m1, m2, ...)
-    const latestBill = userBills[0];
-    const prevDetails = (latestBill && latestBill.meterBreakdown) || [];
-
+    // Multi-flat meters
     const activeMeters = Array.isArray(meters) && meters.length > 0 ? meters : floors.map((fl, idx) => ({
       id: `m${idx + 1}`,
       floor: fl,
-      prev: (prevDetails[idx] && prevDetails[idx].curr) || 0,
-      curr: (prevDetails[idx] && prevDetails[idx].curr) || 0
+      prev: Number(dbPrev[idx] !== undefined ? dbPrev[idx] : 0) || 0,
+      curr: Number(dbPrev[idx] !== undefined ? dbPrev[idx] : 0) || 0
     }));
 
     meterBreakdown = activeMeters.map((m, idx) => {
-      const p = Number(m.prev !== undefined ? m.prev : (prevDetails[idx] ? prevDetails[idx].curr : 0)) || 0;
+      const p = Number(m.prev !== undefined ? m.prev : (dbPrev[idx] !== undefined ? dbPrev[idx] : 0)) || 0;
       const c = Number(m.curr !== undefined ? m.curr : p) || p;
-      const u = Math.max(0, c - p);
-      totalUnits += u;
+      const units = Math.max(0, c - p);
+      totalUnits += units;
+      newCurrUnits.push(c);
       return {
         id: m.id || `m${idx + 1}`,
         floor: m.floor || floors[idx] || `Flat ${idx + 1}`,
         prev: p,
         curr: c,
-        units: u
+        units: units
       };
     });
 
@@ -605,10 +793,12 @@ app.post('/api/jabegu-rent-portal/admin/generate-bill', async (req, res) => {
     currReadingDisplay = meterBreakdown.map(m => `${m.curr} (${m.id})`).join(', ');
   } else {
     // Single flat tenant
-    const latestBill = userBills[0];
-    const prevReading = latestBill ? (Number(latestBill.currentMeterReading) || 0) : 0;
-    const currReading = Number(currentMeterReading) || prevReading;
+    const prevReading = Number(dbPrev[0] !== undefined ? dbPrev[0] : 0) || 0;
+    const currReading = (currentMeterReading !== undefined && currentMeterReading !== null && currentMeterReading !== '')
+      ? Number(currentMeterReading)
+      : prevReading;
     totalUnits = Math.max(0, currReading - prevReading);
+    newCurrUnits.push(currReading);
     prevReadingDisplay = String(prevReading);
     currReadingDisplay = String(currReading);
   }
@@ -616,23 +806,40 @@ app.post('/api/jabegu-rent-portal/admin/generate-bill', async (req, res) => {
   const elecAmount = totalUnits * rate;
   const totalAmount = rent + elecAmount;
 
-  // Prevent duplicate submission within 10 seconds with same reading
-  const lastBill = userBills[0];
-  if (lastBill) {
-    const diffSeconds = (Date.now() - new Date(lastBill.createdAt).getTime()) / 1000;
-    if (diffSeconds < 10 && String(lastBill.currentMeterReading) === currReadingDisplay && lastBill.status === 'unpaid') {
-      return res.json({
-        success: true,
-        message: 'बिल पहिले नै दर्ता भइसकेको छ (Duplicate prevented)',
-        bill: lastBill
-      });
+  // 2. Update rates.json in GitHub repo:
+  // "each time admin generates bill if the db's current reading has a value, then, just copy the current value to the previous value, and the admin's filled new value as the current reading and save it to github. Remember to not change first reading, this is only changed through edit tenant form."
+  try {
+    if (Array.isArray(mr.current) && mr.current.length > 0) {
+      mr.previous = [...mr.current];
+    } else if (!Array.isArray(mr.previous) || mr.previous.length === 0) {
+      mr.previous = Array.isArray(mr.first) && mr.first.length > 0 ? [...mr.first] : [...newCurrUnits];
     }
+    mr.current = newCurrUnits;
+
+    // Ensure first reading is never removed; if missing, initialize it
+    if (!Array.isArray(mr.first) || mr.first.length === 0) {
+      mr.first = [...mr.previous];
+    }
+
+    ratesData[u] = {
+      electricityRatePerUnit: rate,
+      updatedAt: new Date().toISOString(),
+      MeterReading: {
+        first: mr.first,
+        previous: mr.previous,
+        current: mr.current
+      }
+    };
+    await saveRatesDb(ratesData, `Update meter readings on bill generation for ${u}`);
+  } catch (err) {
+    console.error('Error saving updated rates.json to GitHub on bill generation:', err.message);
   }
 
+  // 3. Create the new bill object
   const newBill = {
     id: `BILL-${Date.now()}`,
     tenantUsername: u,
-    tenantFullName: tenant.fullName || tenant.name || u,
+    tenantFullName: tenant.fullName || tenant.full_name || tenant.name || u,
     floors: floors,
     isMultiFlat: isMultiFlat,
     meterBreakdown: meterBreakdown,
@@ -648,13 +855,21 @@ app.post('/api/jabegu-rent-portal/admin/generate-bill', async (req, res) => {
     createdAt: new Date().toISOString()
   };
 
+  // 4. Save to GitHub data/ledger/transactions.json
+  try {
+    const transactions = await getTransactionsDb();
+    transactions.unshift(newBill);
+    await saveTransactionsDb(transactions, `Add bill ${newBill.id} for ${u}`);
+  } catch (err) {
+    console.error('Error saving transactions.json to GitHub:', err.message);
+  }
+
+  // Also maintain local store
   store.bills.unshift(newBill);
   saveStore(store);
 
   // Synchronize with remote in background
-  axios.post(`${REMOTE_API_BASE}/admin/generate-bill`, req.body, { timeout: 8000 }).catch(err => {
-    console.warn('Remote generate-bill sync failed, persisted locally:', err.message);
-  });
+  axios.post(`${REMOTE_API_BASE}/admin/generate-bill`, req.body, { timeout: 8000 }).catch(() => {});
 
   return res.json({
     success: true,
@@ -663,7 +878,7 @@ app.post('/api/jabegu-rent-portal/admin/generate-bill', async (req, res) => {
   });
 });
 
-// C. Rentee: Submit Payment Proof
+// C. Rentee: Submit Payment Proof (Updates GitHub transactions.json and local store)
 app.post('/api/jabegu-rent-portal/rentee/submit-proof', async (req, res) => {
   const { billId, base64Image } = req.body || {};
   if (!billId) {
@@ -680,10 +895,22 @@ app.post('/api/jabegu-rent-portal/rentee/submit-proof', async (req, res) => {
     saveStore(store);
   }
 
+  // Update in GitHub transactions.json
+  try {
+    const transactions = await getTransactionsDb();
+    const match = transactions.find(b => b.id === billId);
+    if (match) {
+      match.status = 'pending_verification';
+      match.proofImage = base64Image || match.proofImage;
+      match.submittedAt = new Date().toISOString();
+      await saveTransactionsDb(transactions, `Submit proof for bill ${billId}`);
+    }
+  } catch (err) {
+    console.error('Error updating proof in transactions.json:', err.message);
+  }
+
   // Forward to remote in background
-  axios.post(`${REMOTE_API_BASE}/rentee/submit-proof`, req.body, { timeout: 8000 }).catch(err => {
-    console.warn('Remote submit-proof sync failed, persisted locally:', err.message);
-  });
+  axios.post(`${REMOTE_API_BASE}/rentee/submit-proof`, req.body, { timeout: 8000 }).catch(() => {});
 
   return res.json({
     success: true,
@@ -691,7 +918,7 @@ app.post('/api/jabegu-rent-portal/rentee/submit-proof', async (req, res) => {
   });
 });
 
-// D. Admin: Verify Payment (Approve / Reject)
+// D. Admin: Verify Payment (Approve / Reject) (Updates GitHub transactions.json and local store)
 app.post('/api/jabegu-rent-portal/admin/verify-payment', async (req, res) => {
   const { billId, isApproved } = req.body || {};
   if (!billId) {
@@ -710,10 +937,23 @@ app.post('/api/jabegu-rent-portal/admin/verify-payment', async (req, res) => {
     saveStore(store);
   }
 
+  // Update in GitHub transactions.json
+  try {
+    const transactions = await getTransactionsDb();
+    const match = transactions.find(b => b.id === billId);
+    if (match) {
+      match.status = isApproved ? 'paid via QR' : 'rejected';
+      if (isApproved) {
+        match.verifiedAt = new Date().toISOString();
+      }
+      await saveTransactionsDb(transactions, `Verify payment ${billId} status ${isApproved ? 'paid' : 'rejected'}`);
+    }
+  } catch (err) {
+    console.error('Error updating payment in transactions.json:', err.message);
+  }
+
   // Forward to remote in background
-  axios.post(`${REMOTE_API_BASE}/admin/verify-payment`, req.body, { timeout: 8000 }).catch(err => {
-    console.warn('Remote verify-payment sync failed, persisted locally:', err.message);
-  });
+  axios.post(`${REMOTE_API_BASE}/admin/verify-payment`, req.body, { timeout: 8000 }).catch(() => {});
 
   return res.json({
     success: true,
@@ -721,56 +961,42 @@ app.post('/api/jabegu-rent-portal/admin/verify-payment', async (req, res) => {
   });
 });
 
-// E. Admin: Dashboard Overview (Aggregates and metrics)
+// E. Admin: Dashboard Overview (Calculated directly from live database transactions)
 app.get('/api/jabegu-rent-portal/admin/dashboard-overview', async (req, res) => {
   const store = loadStore();
-  store.bills = store.bills || [];
 
-  let remoteOverview = null;
-  try {
-    const remoteRes = await axios.get(`${REMOTE_API_BASE}/admin/dashboard-overview`, { timeout: 4000 });
-    if (remoteRes.data) {
-      remoteOverview = remoteRes.data;
-      let remoteInvoices = [];
-      if (Array.isArray(remoteOverview.allInvoices)) remoteInvoices = remoteOverview.allInvoices;
-      else if (Array.isArray(remoteOverview.allBills)) remoteInvoices = remoteOverview.allBills;
-      else if (Array.isArray(remoteOverview)) remoteInvoices = remoteOverview;
+  let [transactions, tenantsList] = await Promise.all([
+    getTransactionsDb().catch(() => []),
+    getTenantsDb().catch(() => [])
+  ]);
 
-      if (remoteOverview.allInvoices || remoteOverview.allBills || Array.isArray(remoteOverview)) {
-        // Sync local store bills completely with backend DB
-        store.bills = remoteInvoices;
-        saveStore(store);
-      }
-    }
-  } catch (err) {
-    console.warn('Remote dashboard-overview fetch error:', err.message);
-  }
+  let allInvoices = (transactions || []).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
-  const allInvoices = (store.bills || []).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-  // Strictly pending payments only in verification queue (no paid, approved, or rejected)
-  const rawQueue = (remoteOverview && Array.isArray(remoteOverview.verificationQueue))
-    ? remoteOverview.verificationQueue
-    : allInvoices;
-  const verificationQueue = rawQueue.filter(b => {
+  // Strictly pending verification queue
+  const verificationQueue = allInvoices.filter(b => {
     const s = (b.status || '').toLowerCase().trim();
     return s === 'pending_verification' || s === 'pending' || s === 'प्रमाणीकरण पेन्डिङ';
   });
 
-  const stats = (remoteOverview && remoteOverview.stats) ? remoteOverview.stats : {
-    activeTenants: Object.keys(store.tenants || {}).length || 2,
-    totalInvoiced: allInvoices.reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0),
-    totalCollected: allInvoices
-      .filter(b => {
-        const s = (b.status || '').toLowerCase().trim();
-        return s === 'paid via qr' || s === 'paid' || s === 'approved' || s === 'भुक्तानी स्वीकृत';
-      })
-      .reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0),
-    totalPendingDues: allInvoices
-      .filter(b => {
-        const s = (b.status || '').toLowerCase().trim();
-        return s === 'unpaid' || s === 'rejected';
-      })
-      .reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0),
+  const totalInvoiced = allInvoices.reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
+  const totalCollected = allInvoices
+    .filter(b => {
+      const s = (b.status || '').toLowerCase().trim();
+      return s === 'paid via qr' || s === 'paid' || s === 'approved' || s === 'भुक्तानी स्वीकृत';
+    })
+    .reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
+  const totalPendingDues = allInvoices
+    .filter(b => {
+      const s = (b.status || '').toLowerCase().trim();
+      return s === 'unpaid' || s === 'rejected';
+    })
+    .reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
+
+  const stats = {
+    activeTenants: tenantsList.length || Object.keys(store.tenants || {}).length || 2,
+    totalInvoiced,
+    totalCollected,
+    totalPendingDues,
     pendingVerificationCount: verificationQueue.length
   };
 
@@ -780,7 +1006,9 @@ app.get('/api/jabegu-rent-portal/admin/dashboard-overview', async (req, res) => 
     allInvoices,
     allBills: allInvoices,
     verificationQueue,
-    monthlyIncome: (remoteOverview && remoteOverview.monthlyIncome) || []
+    monthlyIncome: {
+      "वैशाख": 0, "जेठ": 0, "असार": 0, "साउन": 0, "भदौ": 0, "असोज": 0
+    }
   });
 });
 
