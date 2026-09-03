@@ -86,15 +86,23 @@
               data-target="billing_workspace"
             >
               <i data-lucide="receipt"></i>
-              <span>मासिक बिलिङ (Invoices)</span>
+              <span>मासिक बिल तथा भुक्तानी (Invoices & Payments)</span>
             </a>
             <a
               href="javascript:void(0)"
               class="nav-item"
-              data-target="payments_workspace"
+              data-target="admin_maintenance_workspace"
             >
-              <i data-lucide="credit-card"></i>
-              <span>भुक्तानी लेजर (Payments)</span>
+              <i data-lucide="wrench"></i>
+              <span>मर्मत अनुरोध (Maintenance)</span>
+            </a>
+            <a
+              href="javascript:void(0)"
+              class="nav-item"
+              data-target="admin_notices_workspace"
+            >
+              <i data-lucide="bell"></i>
+              <span>सूचना बोर्ड (Notices)</span>
             </a>
             <a
               href="javascript:void(0)"
@@ -399,7 +407,7 @@
                   <h4><i data-lucide="file-check"></i> डिजिटल सम्झौता र रसिद</h4>
                 </div>
                 <p class="panel-inner-text">
-                  किल्ला नम्बर ३५३४ मा निर्मित सम्पति सम्बन्धी डिजिटल प्रमाणित बसोबास अभिलेख।
+                  सम्पति ठेगाना: जबेगु निवास, कित्ता नम्बर ३५३४, सुर्यविनायक ८ सिपाडोल, भक्तपुर, नेपाल • सम्पर्क नं: ९८०६०६०६६३ / ९७६४३९७४५८
                 </p>
 
                 <div style="background: rgba(215, 176, 109, 0.08); border: 1px solid var(--line-strong); padding: 12px; border-radius: 10px; margin-bottom: 14px;">
@@ -672,6 +680,31 @@
               </button>
             </div>
 
+            <!-- Profile Update Requests Approval Queue (Issue 3) -->
+            <div class="content-glass-card" style="margin-bottom: 24px;">
+              <div class="card-header-inline">
+                <h4><i data-lucide="user-check"></i> डेरावाला प्रोफाइल अद्यावधिक अनुरोधहरू (Profile Update Requests)</h4>
+              </div>
+              <div class="modern-table-scroll-frame">
+                <table class="modern-dashboard-table">
+                  <thead>
+                    <tr>
+                      <th>डेरावाला (Username)</th>
+                      <th>हालको विवरण</th>
+                      <th>अनुरोध गरिएको नयाँ विवरण</th>
+                      <th>अनुरोध मिति</th>
+                      <th>निर्णय (Action)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin_profile_requests_table_body">
+                    <tr>
+                      <td colspan="5" class="empty-state-notice">कुनै पेन्डिङ प्रोफाइल अनुरोध छैन।</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
             <div class="content-glass-card">
               <div class="card-header-inline">
                 <h4><i data-lucide="users"></i> हालका सक्रिय डेरावालाहरूको सूची</h4>
@@ -683,6 +716,7 @@
                     <tr>
                       <th>डेरावालाको नाम र प्रयोगकर्ता</th>
                       <th>कोठा / तल्ला (Floors)</th>
+                      <th>वाइफाइ स्थिति</th>
                       <th>मासिक आधार भाडा</th>
                       <th>स्थिति</th>
                       <th>कार्यहरू</th>
@@ -690,7 +724,7 @@
                   </thead>
                   <tbody id="admin_tenants_table_body">
                     <tr>
-                      <td colspan="5" class="empty-state-notice">डेरावाला सूची लोड हुँदैछ...</td>
+                      <td colspan="6" class="empty-state-notice">डेरावाला सूची लोड हुँदैछ...</td>
                     </tr>
                   </tbody>
                 </table>
@@ -699,14 +733,14 @@
           </div>
 
           <!-- ========================================================= -->
-          <!-- ४. मासिक बिलिङ व्यवस्थापन (Invoices & Billing Workspace)   -->
+          <!-- ४. मासिक बिल तथा भुक्तानी (Invoices & Payments Workspace)   -->
           <!-- ========================================================= -->
           <div id="billing_workspace" class="workspace-section hide">
             <div class="canvas-welcome-jumbotron">
               <div class="jumbotron-text">
-                <h2>भाडा र बिजुली बिलिङ (Invoices & Billing)</h2>
+                <h2>मासिक बिल तथा भुक्तानी (Invoices & Payments)</h2>
                 <p>
-                  मासिक रूपमा बिजुलीको युनिट र कोठा भाडा हिसाब गरी नयाँ डिजिटल बिल काट्ने फारम
+                  मासिक बिल जारी, बिजुली मिटर हिसाब, भुक्तानी प्रमाण रुजु तथा वित्तीय लेजर
                 </p>
               </div>
               <button
@@ -718,9 +752,35 @@
               </button>
             </div>
 
+            <!-- Verification Queue Section inside Combined View -->
+            <div class="content-glass-card" style="margin-bottom: 24px;">
+              <div class="card-header-inline">
+                <h4><i data-lucide="shield-alert"></i> पेन्डिङ भुक्तानी प्रमाण रुजु तथा प्रमाणीकरण (Verification Queue)</h4>
+              </div>
+              <div class="modern-table-scroll-frame">
+                <table class="modern-dashboard-table">
+                  <thead>
+                    <tr>
+                      <th>डेरावाला / बिल आईडी</th>
+                      <th>कुल रकम</th>
+                      <th>हालको स्थिति</th>
+                      <th>भुक्तानी रसिद</th>
+                      <th>कार्य (Action)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="billing_page_verification_queue_body">
+                    <tr>
+                      <td colspan="5" class="empty-state-notice">प्रमाणीकरण लाइन लोड हुँदैछ...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Invoices Ledger Section -->
             <div class="content-glass-card">
               <div class="card-header-inline">
-                <h4><i data-lucide="receipt"></i> सबै मासिक बिलहरूको इतिहास</h4>
+                <h4><i data-lucide="receipt"></i> सबै मासिक बिल तथा भुक्तानी लेजर (Invoices Ledger)</h4>
               </div>
 
               <div class="modern-table-scroll-frame">
@@ -748,38 +808,113 @@
           </div>
 
           <!-- ========================================================= -->
-          <!-- ५. भुक्तानी लेजर तथा इतिहास (Payments Workspace)          -->
+          <!-- ५. मर्मत सम्भार व्यवस्थापन (Admin Maintenance Workspace)   -->
           <!-- ========================================================= -->
-          <div id="payments_workspace" class="workspace-section hide">
+          <div id="admin_maintenance_workspace" class="workspace-section hide">
             <div class="canvas-welcome-jumbotron">
               <div class="jumbotron-text">
-                <h2>भाडा भुक्तानी लेजर तथा इतिहास (Payment Ledger)</h2>
-                <p>मासिक भाडा, विजुली, र युटिलिटीको वित्तीय कारोबारको अभिलेख</p>
+                <h2>मर्मत सम्भार व्यवस्थापन (Maintenance Control)</h2>
+                <p>डेरावालाहरूबाट प्राप्त समस्या र मर्मत अनुरोधहरूको अनुगमन तथा स्थिति अद्यावधिक गर्नुहोस्</p>
               </div>
             </div>
 
             <div class="content-glass-card">
               <div class="card-header-inline">
-                <h4><i data-lucide="history"></i> भुक्तानी कारोबार इतिहास</h4>
+                <h4><i data-lucide="wrench"></i> सम्पूर्ण मर्मत अनुरोधहरूको सूची</h4>
               </div>
 
               <div class="modern-table-scroll-frame">
                 <table class="modern-dashboard-table">
                   <thead>
                     <tr>
-                      <th>डेरावाला / बिल आईडी</th>
-                      <th>कुल रकम</th>
+                      <th>अनुरोध आईडी</th>
+                      <th>डेरावाला</th>
+                      <th>समस्याको विधा</th>
+                      <th>प्राथमिकता</th>
+                      <th>विवरण</th>
                       <th>हालको स्थिति</th>
-                      <th>भुक्तानी रसिद</th>
-                      <th>कार्य (Action)</th>
+                      <th>स्थिति अद्यावधिक (Status Update)</th>
                     </tr>
                   </thead>
-                  <tbody id="payments_ledger_table_body">
+                  <tbody id="admin_maintenance_table_body">
                     <tr>
-                      <td colspan="5" class="empty-state-notice">भुक्तानी लेजर लोड हुँदैछ...</td>
+                      <td colspan="7" class="empty-state-notice">मर्मत अनुरोधहरू लोड हुँदैछ...</td>
                     </tr>
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- ========================================================= -->
+          <!-- ५.१ सूचना बोर्ड व्यवस्थापन (Admin Notices Workspace)         -->
+          <!-- ========================================================= -->
+          <div id="admin_notices_workspace" class="workspace-section hide">
+            <div class="canvas-welcome-jumbotron">
+              <div class="jumbotron-text">
+                <h2>घरधनी सूचना बोर्ड व्यवस्थापन (Notice Board Management)</h2>
+                <p>सबै डेरावालाहरूलाई तत्काल पुग्ने गरी डिजिटल सूचना तथा तालिका प्रकाशित गर्नुहोस्</p>
+              </div>
+            </div>
+
+            <div class="dashboard-split-layout">
+              <!-- Post New Notice Form -->
+              <div class="content-glass-card small-span" style="max-width: 480px;">
+                <div class="card-header-inline">
+                  <h4><i data-lucide="send"></i> नयाँ सूचना जारी गर्नुहोस्</h4>
+                </div>
+                <form id="admin_post_notice_form" onsubmit="event.preventDefault(); PortalDashboard.submitPostNoticeAction();">
+                  <div class="modern-input-field-block">
+                    <label class="field-label">सूचनाको शीर्षक (Title)</label>
+                    <input
+                      type="text"
+                      id="admin_notice_title"
+                      class="modern-dashboard-input"
+                      placeholder="उदा: पानी ट्याङ्की सफाइ सम्बन्धी"
+                      required
+                    />
+                  </div>
+
+                  <div class="modern-input-field-block">
+                    <label class="field-label">प्राथमिकता / वर्ग (Urgency)</label>
+                    <select id="admin_notice_urgency" class="modern-dashboard-input" style="padding: 10px;">
+                      <option value="सामान्य (Normal)">सामान्य (Normal)</option>
+                      <option value="जरूरी (Important)">जरूरी (Important)</option>
+                      <option value="अति जरूरी (Urgent)">अति जरूरी (Urgent)</option>
+                    </select>
+                  </div>
+
+                  <div class="modern-input-field-block">
+                    <label class="field-label">सूचनाको पूर्ण व्यहोरा (Notice Message)</label>
+                    <textarea
+                      id="admin_notice_message"
+                      class="modern-dashboard-input"
+                      style="height: 110px; padding: 12px; resize: vertical;"
+                      placeholder="यहाँ सूचनाको विस्तृत विवरण लेख्नुहोस्..."
+                      required
+                    ></textarea>
+                  </div>
+
+                  <div id="admin_notice_msg" style="margin-bottom: 10px; font-size: 12px; font-weight: 600;"></div>
+
+                  <button
+                    type="submit"
+                    id="btn_admin_post_notice"
+                    class="modern-primary-action-btn"
+                  >
+                    <i data-lucide="bell"></i> सूचना प्रकाशित गर्नुहोस्
+                  </button>
+                </form>
+              </div>
+
+              <!-- Published Notices List -->
+              <div class="content-glass-card large-span">
+                <div class="card-header-inline">
+                  <h4><i data-lucide="list"></i> प्रकाशित सूचनाहरूको सूची</h4>
+                </div>
+                <div id="admin_notices_container" style="display: flex; flex-direction: column; gap: 14px;">
+                  <div style="color: var(--muted); font-size: 13px;">सूचनाहरू लोड हुँदैछन्...</div>
+                </div>
               </div>
             </div>
           </div>
@@ -831,20 +966,9 @@
                 <h4><i data-lucide="key-round"></i> पासवर्ड परिवर्तन (Change Admin Password)</h4>
               </div>
               <p class="panel-inner-text" style="margin-bottom: 16px;">
-                सुरक्षाको लागि आफ्नो पुरानो पासवर्ड र नयाँ गोप्य पासवर्ड प्रविष्ट गर्नुहोस्:
+                घरधनी खाताको लागि नयाँ सुरक्षित पासवर्ड प्रविष्ट गर्नुहोस् (पुरानो पासवर्ड आवश्यक पर्दैन):
               </p>
               <form id="admin_change_password_form" onsubmit="event.preventDefault(); PortalDashboard.submitChangePasswordAction();">
-                <div class="modern-input-field-block">
-                  <label class="field-label">हालको पासवर्ड (Current Password)</label>
-                  <input
-                    type="password"
-                    id="admin_current_password"
-                    class="modern-dashboard-input"
-                    placeholder="हालको पासवर्ड प्रविष्ट गर्नुहोस्"
-                    required
-                  />
-                </div>
-
                 <div class="modern-input-field-block">
                   <label class="field-label">नयाँ पासवर्ड (New Password)</label>
                   <input
@@ -890,6 +1014,24 @@
                 <h2><i data-lucide="user-check"></i> मेरो प्रोफाइल (My Profile)</h2>
                 <p>डेरावाला खाता विवरण, तोकिएको तल्ला, आधार भाडा र सम्पर्क जानकारी</p>
               </div>
+            </div>
+
+            <!-- Rejection Notification Banner (Nepali with [X] dismiss) -->
+            <div id="profile_rejected_notice_banner" class="hide" style="margin-bottom: 20px; background: rgba(215, 110, 110, 0.12); border: 1px solid rgba(215, 110, 110, 0.32); border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 12px; color: #fca5a5; font-size: 13px; font-weight: 600;">
+                <i data-lucide="alert-circle" style="width: 20px; height: 20px; flex-shrink: 0;"></i>
+                <span>तपाईंको व्यक्तिगत विवरण अद्यावधिक अनुरोध घरधनीद्वारा अस्वीकृत गरिएको छ।</span>
+              </div>
+              <button
+                type="button"
+                id="btn_dismiss_profile_rejection"
+                class="app-modal-close-btn"
+                onclick="PortalDashboard.dismissProfileRejectionNotice()"
+                title="यो सूचना बन्द गर्नुहोस्"
+                style="color: #fca5a5; padding: 6px; cursor: pointer;"
+              >
+                <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+              </button>
             </div>
 
             <div class="content-glass-card" style="margin-bottom: 20px;">
@@ -943,14 +1085,116 @@
               </div>
             </div>
 
+            <div class="dashboard-split-layout" style="margin-bottom: 20px;">
+              <!-- Profile Update Request Card (Issue 3) -->
+              <div class="content-glass-card">
+                <div class="card-header-inline">
+                  <h4><i data-lucide="user-cog"></i> व्यक्तिगत विवरण अद्यावधिक अनुरोध</h4>
+                </div>
+                <p class="panel-inner-text" style="font-size: 13px; margin-bottom: 12px;">
+                  आफ्नो नाम वा फोन नम्बर परिमार्जन गर्न फारम भरेर अनुरोध पठाउनुहोस्। घरधनीले स्वीकृत गरेपछि विवरण लागू हुनेछ।
+                </p>
+
+                <!-- Pending Status Badge (Issue 3) -->
+                <div id="profile_update_status_container" class="hide" style="margin-bottom: 14px;">
+                  <span class="badge status-pending" style="font-size: 12px; padding: 6px 12px; border-radius: 8px;">
+                    <i data-lucide="clock" style="width:13px;height:13px"></i> घरधनीको स्वीकृतीको प्रतीक्षामा (Pending Owner Approval)
+                  </span>
+                </div>
+
+                <form id="rentee_profile_update_form" onsubmit="event.preventDefault(); PortalDashboard.submitProfileUpdateRequestAction();">
+                  <div class="modern-input-field-block">
+                    <label class="field-label">नयाँ पूरा नाम (Full Name)</label>
+                    <input
+                      type="text"
+                      id="edit_profile_full_name"
+                      class="modern-dashboard-input"
+                      placeholder="पूरा नाम प्रविष्ट गर्नुहोस्"
+                      required
+                    />
+                  </div>
+                  <div class="modern-input-field-block">
+                    <label class="field-label">नयाँ फोन नम्बर (Phone Number)</label>
+                    <input
+                      type="text"
+                      id="edit_profile_phone"
+                      class="modern-dashboard-input"
+                      placeholder="उदा: ९८०६०६०६६३"
+                      required
+                    />
+                  </div>
+                  <div id="profile_update_msg" style="margin-bottom: 10px; font-size: 12px; font-weight: 600;"></div>
+                  <button
+                    type="submit"
+                    id="btn_submit_profile_update"
+                    class="modern-primary-action-btn"
+                    style="width: 100%;"
+                  >
+                    <i data-lucide="send"></i> विवरण परिवर्तन अनुरोध पठाउनुहोस्
+                  </button>
+                </form>
+              </div>
+
+              <!-- Rentee Password Change Card (Issue 11) -->
+              <div class="content-glass-card">
+                <div class="card-header-inline">
+                  <h4><i data-lucide="key-round"></i> पासवर्ड परिवर्तन (Change Password)</h4>
+                </div>
+                <p class="panel-inner-text" style="font-size: 13px; margin-bottom: 12px;">
+                  आफ्नो डेरावाला खाताको सुरक्षाका लागि हालको पासवर्ड र नयाँ पासवर्ड प्रविष्ट गर्नुहोस्:
+                </p>
+                <form id="rentee_change_password_form" onsubmit="event.preventDefault(); PortalDashboard.submitRenteeChangePasswordAction();">
+                  <div class="modern-input-field-block">
+                    <label class="field-label">हालको पासवर्ड (Current Password)</label>
+                    <input
+                      type="password"
+                      id="rentee_current_password"
+                      class="modern-dashboard-input"
+                      placeholder="हालको पासवर्ड"
+                      required
+                    />
+                  </div>
+                  <div class="modern-input-field-block">
+                    <label class="field-label">नयाँ पासवर्ड (New Password)</label>
+                    <input
+                      type="password"
+                      id="rentee_new_password"
+                      class="modern-dashboard-input"
+                      placeholder="नयाँ गोप्य पासवर्ड"
+                      required
+                    />
+                  </div>
+                  <div class="modern-input-field-block">
+                    <label class="field-label">नयाँ पासवर्ड पुनः पुष्टि (Confirm New Password)</label>
+                    <input
+                      type="password"
+                      id="rentee_confirm_password"
+                      class="modern-dashboard-input"
+                      placeholder="नयाँ पासवर्ड पुनः प्रविष्ट गर्नुहोस्"
+                      required
+                    />
+                  </div>
+                  <div id="rentee_change_pwd_msg" style="margin-bottom: 10px; font-size: 12px; font-weight: 600;"></div>
+                  <button
+                    type="submit"
+                    id="btn_rentee_change_pwd"
+                    class="modern-primary-action-btn"
+                    style="width: 100%;"
+                  >
+                    <i data-lucide="shield-check"></i> पासवर्ड अद्यावधिक गर्नुहोस्
+                  </button>
+                </form>
+              </div>
+            </div>
+
             <div class="content-glass-card">
               <div class="card-header-inline">
                 <h4><i data-lucide="home"></i> घरधनी तथा सम्पति विवरण</h4>
               </div>
               <p class="panel-inner-text" style="line-height: 1.8;">
                 <strong>घरधनीको नाम:</strong> देवेन्द्र कुमार जबेगु / निङसाङ जबेगु<br />
-                <strong>सम्पति ठेगाना:</strong> जबेगु निवास, किल्ला नम्बर ३५३४, भक्तपुर, नेपाल<br />
-                <strong>सम्पर्क नं:</strong> ९८०६०६०६६३ / ९८४१२३४५६७<br />
+                <strong>सम्पति ठेगाना:</strong> जबेगु निवास, कित्ता नम्बर ३५३४, सुर्यविनायक ८ सिपाडोल, भक्तपुर, नेपाल<br />
+                <strong>सम्पर्क नं:</strong> ९८०६०६०६६३ / ९७६४३९७४५८<br />
                 <strong>डिजिटल प्रणाली स्थिति:</strong> प्रमाणित अनलाइन रेकर्ड गेटवे जडित।
               </p>
             </div>
@@ -1237,19 +1481,26 @@
           </div>
         </div>
         <div class="app-modal-footer">
-          <button type="button" class="modern-secondary-btn modal-cancel-btn">
-            रद्द गर्नुहोस्
+          <div id="inspect_rentee_status_block" class="hide" style="margin-right: auto;">
+            <span class="badge status-pending" style="font-size: 12px; padding: 6px 12px; border-radius: 8px;">
+              <i data-lucide="clock" style="width:13px;height:13px;display:inline-block;vertical-align:middle;"></i> प्रमाणीकरण पेन्डिङ (Pending Verification)
+            </span>
+          </div>
+          <button type="button" class="modern-secondary-btn modal-cancel-btn" id="inspect_cancel_btn">
+            Exit / बन्द गर्नुहोस्
           </button>
           <button
             type="button"
-            class="table-mini-action-btn"
-            style="background: #991b1b; color: #fff; padding: 10px 16px;"
+            id="inspect_reject_btn"
+            class="table-mini-action-btn reject-trigger"
+            style="padding: 10px 18px;"
             onclick="PortalDashboard.rejectInspectedPayment()"
           >
             <i data-lucide="x"></i> अस्वीकार गर्नुहोस् (Reject)
           </button>
           <button
             type="button"
+            id="inspect_approve_btn"
             class="table-mini-action-btn accept-trigger"
             style="padding: 10px 16px;"
             onclick="PortalDashboard.approveInspectedPayment()"
@@ -1425,7 +1676,7 @@
               <span>डिजिटल प्रमाणित अभिलेख • जबेगु निवास</span>
             </div>
             <div class="receipt-auth-sign">
-              <span>अधिकृत हस्ताक्षरकर्ता:</span>
+              <span>घरधनि हस्ताक्षर:</span>
               <strong>देवेन्द्र कुमार जबेगु / निङसाङ जबेगु</strong>
             </div>
           </div>
@@ -1534,6 +1785,31 @@
               />
             </div>
 
+            <!-- Wi-Fi Setup Fields (Issue 1) -->
+            <div class="modern-input-field-block" style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px; border: 1px solid var(--line);">
+              <label class="field-label" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 0;">
+                <span style="font-size: 13px; color: var(--text); font-weight: 600;"><i data-lucide="wifi" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; color: var(--accent);"></i> साझा वाइफाइ प्रयोग गर्ने? (Uses Shared Wi-Fi?)</span>
+                <input
+                  type="checkbox"
+                  id="tenant_input_uses_wifi"
+                  style="width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer;"
+                  onchange="PortalDashboard.toggleWifiDeviceInput(this.checked)"
+                />
+              </label>
+
+              <div id="tenant_wifi_devices_block" class="hide" style="margin-top: 12px;">
+                <label class="field-label" style="font-size: 12px;">जडित यन्त्र सङ्ख्या (Connected Devices Count)</label>
+                <input
+                  type="number"
+                  id="tenant_input_wifi_devices"
+                  class="modern-dashboard-input"
+                  placeholder="उदा: 4"
+                  value="1"
+                  min="1"
+                />
+              </div>
+            </div>
+
             <div id="create_tenant_msg" style="color: #ff8c8c; font-size: 12px; font-weight: 600;"></div>
           </div>
           <div class="app-modal-footer">
@@ -1547,6 +1823,65 @@
               style="width: auto; padding: 10px 22px;"
             >
               <i data-lucide="user-plus"></i> डेरावाला दर्ता गर्नुहोस्
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- मोडल ३.१: डेरावाला पासवर्ड रिसेट मोडल (Admin Reset Tenant Password Modal - Issue 11) -->
+    <div id="reset_tenant_password_modal" class="app-modal-overlay hide" role="dialog" aria-modal="true">
+      <div class="app-modal-card" style="max-width: 440px;">
+        <div class="app-modal-header">
+          <div class="app-modal-title">
+            <i data-lucide="key-round"></i> डेरावाला पासवर्ड रिसेट (Reset Tenant Password)
+          </div>
+          <button type="button" class="app-modal-close-btn" aria-label="Close">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <form id="reset_tenant_password_form" onsubmit="event.preventDefault(); PortalDashboard.submitResetTenantPasswordAction();">
+          <div class="app-modal-body">
+            <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 14px;">
+              <span style="font-size: 12px; color: var(--muted);">डेरावाला प्रयोगकर्ता:</span>
+              <strong style="display: block; font-size: 15px; color: var(--accent-strong);" id="reset_modal_tenant_username">@username</strong>
+            </div>
+
+            <div class="modern-input-field-block">
+              <label class="field-label">नयाँ पासवर्ड (New Password)</label>
+              <input
+                type="password"
+                id="reset_modal_new_password"
+                class="modern-dashboard-input"
+                placeholder="नयाँ गोप्य पासवर्ड"
+                required
+              />
+            </div>
+
+            <div class="modern-input-field-block">
+              <label class="field-label">नयाँ पासवर्ड पुनः पुष्टि (Confirm Password)</label>
+              <input
+                type="password"
+                id="reset_modal_confirm_password"
+                class="modern-dashboard-input"
+                placeholder="नयाँ पासवर्ड पुनः टाइप गर्नुहोस्"
+                required
+              />
+            </div>
+
+            <div id="reset_modal_msg" style="margin-bottom: 10px; font-size: 12px; font-weight: 600;"></div>
+          </div>
+          <div class="app-modal-footer">
+            <button type="button" class="modern-secondary-btn modal-cancel-btn">
+              रद्द गर्नुहोस्
+            </button>
+            <button
+              type="submit"
+              id="btn_submit_reset_tenant_pwd"
+              class="modern-primary-action-btn"
+              style="width: auto; padding: 10px 22px;"
+            >
+              <i data-lucide="shield-check"></i> पासवर्ड रिसेट गर्नुहोस्
             </button>
           </div>
         </form>

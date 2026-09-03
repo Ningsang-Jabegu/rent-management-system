@@ -905,12 +905,14 @@ body {
 .field-label { font-size: 11px; font-weight: 700; color: var(--muted-soft); text-transform: uppercase; }
 
 .modern-dashboard-input {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  min-height: 48px;
   width: 100%;
-  height: 44px;
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 0 14px;
   color: var(--text);
   font-size: 14px;
 }
@@ -976,15 +978,157 @@ body {
 .table-action-button-row { display: flex; gap: 6px; }
 
 .table-mini-action-btn {
-  padding: 6px 10px;
-  border: none;
-  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
   font-size: 11px;
   font-weight: 700;
-  cursor: pointer;
+  cursor: pointer !important;
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  line-height: 1;
 }
-.accept-trigger { background: #15803d; color: #fff; }
-.hold-trigger { background: #b45309; color: #fff; }
+.table-mini-action-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent);
+}
+.accept-trigger {
+  background: rgba(215, 176, 109, 0.16) !important;
+  color: var(--accent-strong) !important;
+  border: 1px solid var(--line-strong) !important;
+}
+.accept-trigger:hover {
+  background: var(--accent) !important;
+  color: #07131d !important;
+  box-shadow: 0 4px 14px rgba(215, 176, 109, 0.25);
+}
+.reject-trigger {
+  background: rgba(215, 110, 110, 0.14) !important;
+  color: #fca5a5 !important;
+  border: 1px solid rgba(215, 110, 110, 0.28) !important;
+}
+.reject-trigger:hover {
+  background: rgba(215, 110, 110, 0.28) !important;
+  border-color: rgba(215, 110, 110, 0.5) !important;
+  color: #ffffff !important;
+}
+.hold-trigger {
+  background: rgba(215, 176, 109, 0.1) !important;
+  color: var(--accent-strong) !important;
+  border: 1px solid var(--line) !important;
+}
+
+/* Profile Update Requests & Notice Action Buttons */
+.btn-table-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer !important;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+.btn-table-action i, .table-mini-action-btn i {
+  width: 13px;
+  height: 13px;
+}
+.btn-table-action.btn-approve {
+  background: rgba(215, 176, 109, 0.16);
+  color: var(--accent-strong);
+  border: 1px solid var(--line-strong);
+}
+.btn-table-action.btn-approve:hover {
+  background: var(--accent);
+  color: #07131d;
+  box-shadow: 0 4px 12px rgba(215, 176, 109, 0.25);
+}
+.btn-table-action.btn-reject {
+  background: rgba(215, 110, 110, 0.14);
+  color: #fca5a5;
+  border: 1px solid rgba(215, 110, 110, 0.28);
+}
+.btn-table-action.btn-reject:hover {
+  background: rgba(215, 110, 110, 0.28);
+  border-color: rgba(215, 110, 110, 0.5);
+  color: #ffffff;
+}
+
+.btn-delete-notice {
+  background: rgba(215, 110, 110, 0.14) !important;
+  color: #fca5a5 !important;
+  border: 1px solid rgba(215, 110, 110, 0.28) !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  padding: 6px 12px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  transition: all 0.2s ease !important;
+}
+.btn-delete-notice:hover {
+  background: rgba(215, 110, 110, 0.28) !important;
+  border-color: rgba(215, 110, 110, 0.5) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
+
+/* Autofill Background Transparency, Color and Blinker Cursor Persistence */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+textarea:-webkit-autofill:active,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus,
+select:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #0c1a27 inset !important;
+  box-shadow: 0 0 0 1000px #0c1a27 inset !important;
+  -webkit-text-fill-color: var(--text, #f5f8fb) !important;
+  caret-color: var(--accent-strong, #f0d19a) !important;
+  color: var(--text, #f5f8fb) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Ensure blinker cursor is always visible */
+input, textarea, select, .rj-input, .modern-dashboard-input {
+  caret-color: var(--accent-strong, #f0d19a) !important;
+}
+
+/* Dropdown styling, hover effect and pointer cursor */
+select, .modern-dashboard-input select, select.modern-dashboard-input {
+  cursor: pointer !important;
+  background-color: #0c1a27 !important;
+  color: var(--text) !important;
+}
+
+select option {
+  background-color: #0c1a27 !important;
+  color: #f5f8fb !important;
+  cursor: pointer !important;
+  padding: 10px 14px;
+}
+
+select option:hover,
+select option:focus,
+select option:checked {
+  background: #1a2c3f !important;
+  background-color: #1a2c3f !important;
+  color: var(--accent-strong, #f0d19a) !important;
+}
 
 /* ==========================================================================
    5. BREAKPOINT UP-SCALING DESIGN DRIVERS (DESKTOP INTERFACE MODULES)
@@ -1430,3 +1574,23 @@ body {
     border: 1px solid #ccc !important;
   }
 }
+
+/* ==========================================================================
+   Dark styled dropdown options and autofill overrides
+   ========================================================================== */
+select, option {
+  background-color: #121824 !important;
+  color: #f3f4f6 !important;
+}
+
+/* Fix browser autofill white background overrides */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: #ffffff !important;
+  -webkit-box-shadow: 0 0 0px 1000px #1e293b inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+

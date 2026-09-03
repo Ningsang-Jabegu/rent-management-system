@@ -1,0 +1,57 @@
+{
+  "adminPassword": "admin",
+  "tenants": {
+    "aanayas": {
+      "username": "aanayas",
+      "fullName": "Aanayas",
+      "phone": "९८०६०६०६६३",
+      "password": "123",
+      "status": "सक्रिय",
+      "floor": ["1st Floor"],
+      "floorRent": 15000,
+      "usesSharedWifi": true,
+      "wifiDeviceCount": 2
+    },
+    "fanso": {
+      "username": "fanso",
+      "fullName": "Fanso Seling",
+      "phone": "९८५१०१२३४५",
+      "password": "123",
+      "status": "सक्रिय",
+      "floor": ["3rd Floor"],
+      "floorRent": 20000,
+      "usesSharedWifi": true,
+      "wifiDeviceCount": 1
+    }
+  },
+  "maintenanceRequests": [
+    {
+      "id": "MAINT-1",
+      "tenantUsername": "aanayas",
+      "issueType": "धारा / प्लम्बिङ (Water & Plumbing)",
+      "urgency": "जरूरी (Urgent)",
+      "description": "बाथरुमको धाराबाट लगातार पानी चुहिरहेको छ।",
+      "status": "काम हुँदैछ",
+      "date": "२०८३ बैशाख १२"
+    }
+  ],
+  "notices": [
+    {
+      "id": "NOTICE-1",
+      "title": "पानी ट्याङ्की सफाइ तथा मर्मत सम्बन्धी सूचना",
+      "urgency": "जरूरी (Important)",
+      "message": "आदरणीय डेरावाला साथीहरू, यस महिनाको पानी ट्याङ्की सफाइ कार्यक्रम आगामी शनिबार विहान ८ बजे हुने भएकोले आवश्यक पानी सुरक्षित गरिराख्नुहोला।",
+      "date": "२०८३ बैशाख १५",
+      "author": "घरधनी कार्यालय"
+    },
+    {
+      "id": "NOTICE-2",
+      "title": "डिजिटल भुक्तानी प्रणाली सम्बन्धी जानकारी",
+      "urgency": "सामान्य (Normal)",
+      "message": "सबै डेरावाला महानुभावहरूले आफ्नो मासिक भाडा र बिजुली बिल अनलाइन क्युआर (Global IME / eSewa / Khalti) मार्फत भुक्तानी गरी भौचर प्रणालीमा अपलोड गरिदिनुहुन अनुरोध छ।",
+      "date": "२०८३ बैशाख १०",
+      "author": "व्यवस्थापन"
+    }
+  ],
+  "profileRequests": []
+}

@@ -262,6 +262,22 @@
       </div>
     </div>
 
+    <!-- Disabled Tenant Block Modal (Issue 10) -->
+    <div id="disabled_account_modal" class="modal-overlay hide" style="position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 99999;">
+      <div style="background: #151f2e; border: 1px solid #ef4444; border-radius: 16px; max-width: 440px; width: 90%; padding: 26px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
+        <div style="width: 56px; height: 56px; border-radius: 50%; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; color: #ef4444; font-size: 26px;">
+          ⚠️
+        </div>
+        <h3 style="color: #f87171; font-size: 18px; margin-bottom: 12px; font-weight: 700;">खाता निष्क्रीय (Account Disabled)</h3>
+        <p style="color: #e2e8f0; font-size: 14px; line-height: 1.6; margin-bottom: 22px;" id="disabled_modal_text">
+          तपाईंको खाता घरधनीद्वारा निष्क्रीय गरिएको छ। कृपया प्रशासनसँग सम्पर्क गर्नुहोस्।
+        </p>
+        <button type="button" onclick="$('#disabled_account_modal').addClass('hide')" style="background: #ef4444; color: #fff; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 14px; width: 100%;">
+          बन्द गर्नुहोस् (Close)
+        </button>
+      </div>
+    </div>
+
     <script type="text/javascript" src="./js/jquery/jquery.min.js"></script>
     <script type="text/javascript" src="./js/index.js"></script>
   </body>
