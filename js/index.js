@@ -9,6 +9,199 @@ const API_BASE = (typeof window !== 'undefined' && window.location && window.loc
   : 'https://api.ningsangjabegu.com.np/api/jabegu-rent-portal';
 
 // ==========================================
+// ०. इन-मेमोरी अथेन्टिकेसन भण्डारण (In-Memory Auth Storage)
+// ==========================================
+const AuthMemory = (function () {
+  let inMemoryToken = null;
+  let inMemorySession = null;
+
+  // Immediately check for one-time handoff token from login navigation
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      const handoff = sessionStorage.getItem('__jabegu_jwt_handoff__');
+      if (handoff) {
+        inMemoryToken = handoff;
+        sessionStorage.removeItem('__jabegu_jwt_handoff__'); // Purge immediately from storage
+      }
+    }
+  } catch (_) {}
+
+  return {
+    setToken: function (token) {
+      inMemoryToken = token || null;
+    },
+    getToken: function () {
+      return inMemoryToken;
+    },
+    setSession: function (session) {
+      inMemorySession = session ? { ...session } : null;
+      if (inMemorySession && inMemorySession.token) {
+        inMemoryToken = inMemorySession.token;
+        delete inMemorySession.token; // Keep sensitive JWT out of general session representation
+      }
+    },
+    getSession: function () {
+      return inMemorySession;
+    },
+    getUsername: function () {
+      if (inMemorySession && inMemorySession.username) {
+        return (inMemorySession.username || '').trim().toLowerCase();
+      }
+      try {
+        const legacyUser = localStorage.getItem('username');
+        if (legacyUser) return legacyUser.trim().toLowerCase();
+      } catch (_) {}
+      return null;
+    },
+    getRole: function () {
+      if (inMemorySession && inMemorySession.role) {
+        return inMemorySession.role;
+      }
+      try {
+        const legacyRole = localStorage.getItem('role');
+        if (legacyRole) return legacyRole;
+      } catch (_) {}
+      return null;
+    },
+    clear: function () {
+      inMemoryToken = null;
+      inMemorySession = null;
+      try {
+        sessionStorage.removeItem('__jabegu_jwt_handoff__');
+      } catch (_) {}
+    }
+  };
+})();
+
+// Defensively strip sensitive password and hash fields from response objects client-side
+function sanitizeData(data) {
+  if (!data || typeof data !== 'object') return data;
+  if (Array.isArray(data)) {
+    return data.map(sanitizeData);
+  }
+  const clean = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (k === 'password_hash' || k === 'passwordHash' || k === 'hash' || (k === 'password' && typeof v === 'string' && v.startsWith('$2'))) {
+      continue;
+    }
+    clean[k] = sanitizeData(v);
+  }
+  return clean;
+}
+
+// Universal API Fetcher with automatic JWT injection, 401 redirect, 403, 429, and 400 validation parsing
+async function apiFetch(endpoint, options = {}) {
+  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
+  const headers = { ...(options.headers || {}) };
+
+  const token = AuthMemory.getToken();
+  if (token && !headers['Authorization']) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  if (options.body && typeof options.body === 'string' && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  let res;
+  try {
+    res = await fetch(url, { ...options, headers });
+  } catch (netErr) {
+    throw new Error('नेटवर्क सम्पर्क हुन सकेन। कृपया इन्टरनेट जडान जाँच गर्नुहोस्। (Network connection failed)');
+  }
+
+  let data = null;
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    data = await res.json().catch(() => ({}));
+  } else {
+    const text = await res.text().catch(() => '');
+    try {
+      data = JSON.parse(text);
+    } catch (_) {
+      data = { message: text };
+    }
+  }
+
+  // Strip password_hash from any returned data defensively
+  data = sanitizeData(data);
+
+  // 1. Handle 401 Unauthorized (Expired or invalid JWT)
+  if (res.status === 401) {
+    AuthMemory.clear();
+    SessionManager.destroySession();
+    const isTokenExpired = data && (data.code === 'TOKEN_EXPIRED' || (data.error && data.error.includes('expired')) || (data.message && data.message.includes('expired')));
+    const msg = isTokenExpired
+      ? 'तपाईंको सेसन समाप्त भएको छ। कृपया पुनः लगइन गर्नुहोस्। (Session expired. Please log in again.)'
+      : (data && (data.error || data.message)) || 'प्रमाणिकरण असफल भयो। कृपया पुनः लगइन गर्नुहोस्। (Authentication failed)';
+
+    if (typeof window !== 'undefined' && window.location && !window.location.pathname.endsWith('index.html') && window.location.pathname !== '/') {
+      window.location.href = 'index.html?reason=session_expired';
+    }
+    const err = new Error(msg);
+    err.status = 401;
+    err.code = data && data.code ? data.code : 'TOKEN_EXPIRED';
+    throw err;
+  }
+
+  // 2. Handle 403 Forbidden
+  if (res.status === 403) {
+    if (data.disabled === true || (data.error && data.error.toLowerCase().includes('disabled')) || (data.message && data.message.toLowerCase().includes('disabled')) || (data.message && data.message.includes('निष्क्रीय'))) {
+      const err = new Error(data.message || data.error || 'तपाईंको खाता घरधनीद्वारा निष्क्रीय गरिएको छ। कृपया प्रशासनसँग सम्पर्क गर्नुहोस्।');
+      err.isDisabledAccount = true;
+      err.status = 403;
+      throw err;
+    }
+    const errMsg = 'तपाईंलाई यो कार्य गर्ने अनुमति छैन (Not authorized for this action)';
+    const err = new Error(errMsg);
+    err.status = 403;
+    err.code = data && data.code ? data.code : 'FORBIDDEN';
+    throw err;
+  }
+
+  // 3. Handle 429 Rate Limit
+  if (res.status === 429) {
+    const retryMinutes = (data && data.retryAfterMinutes) || 15;
+    const msg = `धेरै प्रयासहरू भए। कृपया ${retryMinutes} मिनेटपछि पुनः प्रयास गर्नुहोस्। (Too many attempts. Please try again in a moment.)`;
+    const err = new Error(msg);
+    err.status = 429;
+    err.code = 'TOO_MANY_REQUESTS';
+    err.retryAfterMinutes = retryMinutes;
+    throw err;
+  }
+
+  // 4. Handle 400 Bad Request / Validation Failure
+  if (res.status === 400) {
+    let msg = (data && (data.error || data.message)) || 'अनुरोध अमान्य भयो (Bad Request)';
+    if (data && Array.isArray(data.details) && data.details.length > 0) {
+      const fieldMsgs = data.details.map(d => {
+        const path = (d.path && d.path.length) ? d.path.join('.') + ': ' : '';
+        return `${path}${d.message}`;
+      }).join('; ');
+      msg = `${msg}: ${fieldMsgs}`;
+    } else if (data && data.fields && typeof data.fields === 'object') {
+      const fieldMsgs = Object.entries(data.fields).map(([f, m]) => `${f}: ${m}`).join('; ');
+      msg = `${msg}: ${fieldMsgs}`;
+    }
+    const err = new Error(msg);
+    err.status = 400;
+    err.details = data.details || null;
+    err.fields = data.fields || null;
+    throw err;
+  }
+
+  // Other non-ok statuses
+  if (!res.ok || (data && data.success === false)) {
+    const errMsg = (data && (data.error || data.message)) || `अनुरोध असफल भयो (Status: ${res.status})`;
+    const err = new Error(errMsg);
+    err.status = res.status;
+    throw err;
+  }
+
+  return data;
+}
+
+// ==========================================
 // ०. सुरक्षित सेसन प्रबन्धक (Unique Season/Session Slug Engine)
 // ==========================================
 class SessionManager {
@@ -42,9 +235,9 @@ class SessionManager {
         fullName: name,
         phone: userData.phone || '९८०६०६०६६३'
       },
-      token: userData.token || `jwt_${Math.random().toString(36).substring(2)}`,
+      // Note: JWT token is stored strictly in AuthMemory (in-memory) to prevent XSS exposure
       createdAt: Date.now(),
-      expiresAt: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
+      expiresAt: Date.now() + 15 * 60 * 1000 // 15 min JWT lifetime
     };
 
     const sessions = this.getAllSessions();
@@ -53,7 +246,7 @@ class SessionManager {
     sessionStorage.setItem(this.CURRENT_SLUG_KEY, slug);
     localStorage.setItem(this.CURRENT_SLUG_KEY, slug);
 
-    // Keep active user caches synced across all storage keys
+    // Keep active user display caches synced (non-sensitive profile information)
     localStorage.setItem('user_session', JSON.stringify(sessionObj));
     localStorage.setItem('currentUser', JSON.stringify(sessionObj));
     localStorage.setItem('username', sessionObj.username);
@@ -91,8 +284,7 @@ class SessionManager {
   }
 
   /**
-   * Returns active session object: { username, role, name, fullName, user, token, slug }
-   * Safely falls back to localStorage 'user_session', 'currentUser', or 'username'/'role'/'name'
+   * Returns active session object: { username, role, name, fullName, user, slug }
    */
   static getActiveSession() {
     // Attempt 1: Look up session by URL slug
@@ -172,7 +364,6 @@ class SessionManager {
     const username = (raw.username || (raw.user && raw.user.username) || raw.name || '').trim().toLowerCase();
     const role = raw.role || (raw.user && raw.user.role) || (username === 'admin' ? 'owner' : 'rentee');
     const name = raw.name || raw.fullName || (raw.user && (raw.user.fullName || raw.user.name)) || username;
-    const token = raw.token || '';
     const slug = raw.slug || '';
     const phone = raw.phone || (raw.user && raw.user.phone) || '९८०६०६०६६३';
 
@@ -188,12 +379,12 @@ class SessionManager {
         fullName: name,
         phone
       },
-      token,
       slug
     };
   }
 
   static destroySession() {
+    AuthMemory.clear();
     try {
       const slug = sessionStorage.getItem(this.CURRENT_SLUG_KEY) || localStorage.getItem(this.CURRENT_SLUG_KEY);
       if (slug) {
@@ -216,49 +407,30 @@ class SessionManager {
 
 // Global browser window exposure
 window.SessionManager = SessionManager;
+window.AuthMemory = AuthMemory;
 
 // ==========================================
-// ०. API Gateway Client Interface (Official Backend)
+// ०. API Gateway Client Interface (Hardened Backend)
 // ==========================================
 const ApiService = {
   // 1. Authentication
   login: async function (username, password) {
-    const res = await fetch(`${API_BASE}/auth/login`, {
+    const data = await apiFetch('/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });
-    const data = await res.json().catch(() => ({}));
-    if (res.status === 403 || data.disabled === true || (data.error && data.error.toLowerCase().includes('disabled')) || (data.message && data.message.toLowerCase().includes('disabled')) || (data.message && data.message.includes('निष्क्रीय'))) {
-      const err = new Error(data.message || data.error || 'तपाईंको खाता घरधनीद्वारा निष्क्रीय गरिएको छ। कृपया प्रशासनसँग सम्पर्क गर्नुहोस्।');
-      err.isDisabledAccount = true;
-      err.status = 403;
-      throw err;
-    }
-    if (!res.ok || (data && data.success === false)) {
-      throw new Error(data.error || data.message || 'प्रमाणिकरण असफल भयो (Authentication failed)');
-    }
     return data;
   },
 
   // 2. Admin Operations
   // A. Fetch Dashboard Overview
   getDashboardOverview: async function () {
-    const res = await fetch(`${API_BASE}/admin/dashboard-overview`);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || (data && data.success === false)) {
-      throw new Error(data.error || data.message || 'ड्यासबोर्ड विवरण लोड हुन सकेन');
-    }
-    return data;
+    return apiFetch('/admin/dashboard-overview');
   },
 
   // B. Fetch All Tenants
   getTenants: async function () {
-    const res = await fetch(`${API_BASE}/admin/tenants`);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.error || data.message || 'डेरावालाहरूको सूची लोड हुन सकेन');
-    }
+    const data = await apiFetch('/admin/tenants');
     if (Array.isArray(data)) return data;
     if (data && Array.isArray(data.tenants)) return data.tenants;
     return [];
@@ -266,147 +438,94 @@ const ApiService = {
 
   // C. Create Tenant
   createTenant: async function (tenantData) {
-    const res = await fetch(`${API_BASE}/admin/create-tenant`, {
+    return apiFetch('/admin/create-tenant', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(tenantData)
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || (data && data.success === false)) {
-      throw new Error(data.error || data.message || 'डेरावाला दर्ता असफल भयो (Tenant creation failed)');
-    }
-    return data;
   },
 
   // C.1. Edit / Update Tenant Details
   editTenant: async function (tenantData) {
-    const res = await fetch(`${API_BASE}/admin/edit-tenant`, {
+    return apiFetch('/admin/edit-tenant', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(tenantData)
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || (data && data.success === false)) {
-      throw new Error(data.error || data.message || 'डेरावाला विवरण अद्यावधिक गर्न सकिएन');
-    }
-    return data;
   },
 
   // C.2. Fetch Specific Tenant Profile
   getTenantProfile: async function (username) {
-    const res = await fetch(`${API_BASE}/rentee/profile/${encodeURIComponent(username)}`);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || (data && data.success === false)) {
-      return null;
-    }
+    const authRole = AuthMemory.getRole();
+    const authUser = AuthMemory.getUsername();
+    // Rentee can only request their own profile; owner can specify username
+    const target = (authRole === 'owner' && username) ? username : authUser;
+    if (!target) return null;
+    const data = await apiFetch(`/rentee/profile/${encodeURIComponent(target)}`).catch(() => null);
+    if (!data) return null;
     return data.tenant || data;
   },
 
   // D. Generate Monthly Bill
   generateBill: async function (billData) {
-    const res = await fetch(`${API_BASE}/admin/generate-bill`, {
+    return apiFetch('/admin/generate-bill', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(billData)
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || (data && data.success === false)) {
-      throw new Error(data.error || data.message || 'बिल जारी असफल भयो (Bill generation failed)');
-    }
-    return data;
   },
 
   // E. Verify Payment (Approve / Reject)
   verifyPayment: async function (billId, isApproved) {
-    const res = await fetch(`${API_BASE}/admin/verify-payment`, {
+    return apiFetch('/admin/verify-payment', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ billId, isApproved })
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || (data && data.success === false)) {
-      throw new Error(data.error || data.message || 'प्रमाणिकरण अपडेट असफल भयो (Verification update failed)');
-    }
-    return data;
   },
 
   // F. House Rules (Get & Update)
   getHouseRules: async function () {
-    const res = await fetch(`${API_BASE}/admin/house-rules`);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.error || data.message || 'घरको नियम लोड हुन सकेन');
-    }
+    const data = await apiFetch('/admin/house-rules');
     if (Array.isArray(data)) return data;
     if (data && Array.isArray(data.rules)) return data.rules;
     return [];
   },
 
   updateHouseRules: async function (rules) {
-    const res = await fetch(`${API_BASE}/admin/update-house-rules`, {
+    return apiFetch('/admin/update-house-rules', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rules })
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || (data && data.success === false)) {
-      throw new Error(data.error || data.message || 'घरको नियम अद्यावधिक असफल भयो');
-    }
-    return data;
   },
 
-  // G. Change Admin Password (Issue 11: Only newPassword required)
+  // G. Change Admin Password
   changePassword: async function (currentPassword, newPassword) {
     const payload = newPassword ? { newPassword } : { newPassword: currentPassword };
-    const res = await fetch(`${API_BASE}/admin/change-password`, {
+    return apiFetch('/admin/change-password', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || (data && data.success === false)) {
-      throw new Error(data.error || data.message || 'पासवर्ड परिवर्तन असफल भयो (Password update failed)');
-    }
-    return data;
   },
 
-  // H. Admin Reset Tenant Password (Issue 11)
+  // H. Admin Reset Tenant Password
   resetTenantPassword: async function (tenantUsername, newPassword) {
-    const res = await fetch(`${API_BASE}/admin/reset-tenant-password`, {
+    return apiFetch('/admin/reset-tenant-password', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tenantUsername, newPassword })
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || (data && data.success === false)) {
-      throw new Error(data.error || data.message || 'डेरावालाको पासवर्ड रिसेट गर्न सकिएन');
-    }
-    return data;
   },
 
   // I. Toggle Tenant Status (सक्रिय / निष्क्रीय)
   toggleTenantStatus: async function (username, status) {
-    const res = await fetch(`${API_BASE}/admin/toggle-tenant-status`, {
+    return apiFetch('/admin/toggle-tenant-status', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, status })
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || (data && data.success === false)) {
-      throw new Error(data.error || data.message || 'डेरावालाको स्थिति परिवर्तन गर्न सकिएन');
-    }
-    return data;
   },
 
-  // J. Profile Requests Approval Queue (Issue 3)
+  // J. Profile Requests Approval Queue
   getProfileRequests: async function () {
     try {
-      const res = await fetch(`${API_BASE}/admin/profile-requests`);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) return data;
-        if (data && Array.isArray(data.requests)) return data.requests;
-      }
+      const data = await apiFetch('/admin/profile-requests');
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.requests)) return data.requests;
     } catch (_) {}
     try {
       return JSON.parse(localStorage.getItem('jabegu_profile_requests') || '[]');
@@ -417,21 +536,18 @@ const ApiService = {
 
   reviewProfileUpdate: async function (requestId, tenantUsername, isApproved, updatedData) {
     try {
-      await fetch(`${API_BASE}/admin/review-profile-update`, {
+      await apiFetch('/admin/review-profile-update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ requestId, tenantUsername, isApproved })
       });
     } catch (_) {}
 
-    // Update local storage representation
     try {
       let reqs = JSON.parse(localStorage.getItem('jabegu_profile_requests') || '[]');
       reqs = reqs.filter(r => r.id !== requestId);
       localStorage.setItem('jabegu_profile_requests', JSON.stringify(reqs));
 
       if (isApproved && updatedData) {
-        // update tenant in storage
         const currentU = JSON.parse(localStorage.getItem('user_session') || '{}');
         if (currentU.username === tenantUsername) {
           if (updatedData.fullName) currentU.name = updatedData.fullName;
@@ -444,15 +560,16 @@ const ApiService = {
     return { success: true };
   },
 
-  // K. Notices System (Issue 8)
+  // K. Notices System (Admin & Rentee)
+  getAdminNotices: async function () {
+    return this.getNotices();
+  },
+
   getNotices: async function () {
     try {
-      const res = await fetch(`${API_BASE}/admin/notices`);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) return data;
-        if (data && Array.isArray(data.notices)) return data.notices;
-      }
+      const data = await apiFetch('/admin/notices');
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.notices)) return data.notices;
     } catch (_) {}
     try {
       return JSON.parse(localStorage.getItem('jabegu_admin_notices') || '[]');
@@ -461,222 +578,130 @@ const ApiService = {
     }
   },
 
-  postNotice: async function (noticeData) {
+  getRenteeNotices: async function () {
     try {
-      await fetch(`${API_BASE}/admin/post-notice`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(noticeData)
-      });
+      const data = await apiFetch('/rentee/notices');
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.notices)) return data.notices;
     } catch (_) {}
+    return [];
+  },
 
-    try {
-      const list = JSON.parse(localStorage.getItem('jabegu_admin_notices') || '[]');
-      list.unshift({
-        id: 'NOTICE-' + Date.now(),
-        ...noticeData,
-        createdAt: new Date().toISOString(),
-        nepaliDate: new Date().toLocaleDateString('ne-NP')
-      });
-      localStorage.setItem('jabegu_admin_notices', JSON.stringify(list));
-    } catch (_) {}
-    return { success: true };
+  postNotice: async function (noticeData) {
+    return apiFetch('/admin/post-notice', {
+      method: 'POST',
+      body: JSON.stringify(noticeData)
+    });
   },
 
   deleteNotice: async function (noticeId) {
-    try {
-      await fetch(`${API_BASE}/admin/delete-notice`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ noticeId })
-      });
-    } catch (_) {}
-
-    try {
-      let list = JSON.parse(localStorage.getItem('jabegu_admin_notices') || '[]');
-      list = list.filter(n => n.id !== noticeId);
-      localStorage.setItem('jabegu_admin_notices', JSON.stringify(list));
-    } catch (_) {}
-
-    try {
-      let list = JSON.parse(localStorage.getItem('jabegu_notices') || '[]');
-      list = list.filter(n => n.id !== noticeId);
-      localStorage.setItem('jabegu_notices', JSON.stringify(list));
-    } catch (_) {}
-    return { success: true };
+    return apiFetch('/admin/delete-notice', {
+      method: 'POST',
+      body: JSON.stringify({ noticeId })
+    });
   },
 
-  // L. Maintenance System (Issue 8)
+  // L. Maintenance System (Admin & Rentee)
   createMaintenanceRequest: async function (payload) {
-    const res = await fetch(`${API_BASE}/rentee/create-maintenance`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || (data && data.success === false)) {
-      throw new Error(data.error || data.message || 'मर्मत अनुरोध पठाउन सकिएन।');
-    }
+    const authUser = AuthMemory.getUsername();
+    if (!authUser) throw new Error('अनधिकृत अनुरोध (Unauthorized)');
 
-    try {
-      const list = JSON.parse(localStorage.getItem('jabegu_maintenance_requests') || '[]');
-      list.unshift(data.request || {
-        id: 'MAINT-' + Date.now(),
-        ...payload,
-        status: 'नयाँ अनुरोध',
-        date: new Date().toLocaleDateString('ne-NP'),
-        createdAt: new Date().toISOString()
-      });
-      localStorage.setItem('jabegu_maintenance_requests', JSON.stringify(list));
-    } catch (_) {}
-    return data;
+    const safePayload = {
+      ...payload,
+      tenantUsername: authUser // Enforce authenticated session username
+    };
+
+    return apiFetch('/rentee/create-maintenance', {
+      method: 'POST',
+      body: JSON.stringify(safePayload)
+    });
   },
 
   getMaintenanceRequests: async function () {
-    try {
-      const res = await fetch(`${API_BASE}/admin/maintenance-requests`);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) return data;
-        if (data && Array.isArray(data.requests)) return data.requests;
-      }
-    } catch (_) {}
-    try {
-      return JSON.parse(localStorage.getItem('jabegu_maintenance_requests') || '[]');
-    } catch (_) {
-      return [];
-    }
+    const data = await apiFetch('/admin/maintenance-requests');
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.requests)) return data.requests;
+    return [];
+  },
+
+  getMyMaintenance: async function () {
+    const authUser = AuthMemory.getUsername();
+    if (!authUser) return [];
+    const data = await apiFetch(`/rentee/my-maintenance/${encodeURIComponent(authUser)}`);
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.requests)) return data.requests;
+    return [];
   },
 
   updateMaintenanceStatus: async function (requestId, status) {
-    try {
-      await fetch(`${API_BASE}/admin/update-maintenance-status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId, status })
-      });
-    } catch (_) {}
-
-    try {
-      const list = JSON.parse(localStorage.getItem('jabegu_maintenance_requests') || '[]');
-      const item = list.find(m => m.id === requestId);
-      if (item) {
-        item.status = status;
-        localStorage.setItem('jabegu_maintenance_requests', JSON.stringify(list));
-      }
-    } catch (_) {}
-    return { success: true };
+    return apiFetch('/admin/update-maintenance-status', {
+      method: 'POST',
+      body: JSON.stringify({ requestId, status })
+    });
   },
 
   // 3. Rentee Operations
-  // Rentee Password Change (Issue 11: Requires Current Password & New Password)
-  renteeChangePassword: async function (tenantUsername, currentPassword, newPassword) {
-    const res = await fetch(`${API_BASE}/rentee/change-password`, {
+  // Rentee Password Change (Derives tenantUsername from authenticated session)
+  renteeChangePassword: async function (currentPassword, newPassword) {
+    const authUser = AuthMemory.getUsername();
+    if (!authUser) throw new Error('अनधिकृत अनुरोध (Unauthorized)');
+
+    let cur = currentPassword;
+    let nxt = newPassword;
+    if (arguments.length === 3) {
+      cur = arguments[1];
+      nxt = arguments[2];
+    }
+
+    return apiFetch('/rentee/change-password', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tenantUsername, currentPassword, newPassword })
+      body: JSON.stringify({ tenantUsername: authUser, currentPassword: cur, newPassword: nxt })
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || (data && data.success === false)) {
-      throw new Error(data.error || data.message || 'पासवर्ड परिवर्तन असफल भयो (Password update failed)');
+  },
+
+  // Profile Edit Request (Derives tenantUsername from authenticated session)
+  requestProfileUpdate: async function (fullName, phone) {
+    const authUser = AuthMemory.getUsername();
+    if (!authUser) throw new Error('अनधिकृत अनुरोध (Unauthorized)');
+
+    let name = fullName;
+    let ph = phone;
+    if (arguments.length === 3) {
+      name = arguments[1];
+      ph = arguments[2];
     }
-    return data;
+
+    return apiFetch('/rentee/request-profile-update', {
+      method: 'POST',
+      body: JSON.stringify({ tenantUsername: authUser, fullName: name, phone: ph })
+    });
   },
 
-  // Profile Edit Request (Issue 3)
-  requestProfileUpdate: async function (tenantUsername, fullName, phone) {
-    try {
-      await fetch(`${API_BASE}/rentee/request-profile-update`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantUsername, fullName, phone })
-      });
-    } catch (_) {}
-
-    const reqObj = {
-      id: 'REQ-' + Date.now(),
-      tenantUsername,
-      fullName,
-      phone,
-      status: 'pending',
-      date: new Date().toLocaleDateString('ne-NP'),
-      createdAt: new Date().toISOString()
-    };
-
-    try {
-      const allReqs = JSON.parse(localStorage.getItem('jabegu_profile_requests') || '[]');
-      // remove old pending for same user
-      const filtered = allReqs.filter(r => !(r.tenantUsername === tenantUsername && r.status === 'pending'));
-      filtered.unshift(reqObj);
-      localStorage.setItem('jabegu_profile_requests', JSON.stringify(filtered));
-      localStorage.setItem(`jabegu_pending_profile_${tenantUsername}`, JSON.stringify(reqObj));
-    } catch (_) {}
-    return { success: true };
-  },
-  // A. Fetch Tenant Bills
+  // Fetch Tenant Bills (Derived from session for rentees)
   getMyBills: async function (tenantUsername) {
-    let resolvedUsername = tenantUsername;
-
-    // Safe fallback resolution if tenantUsername is not passed or empty
-    if (!resolvedUsername) {
-      try {
-        const session = (typeof SessionManager !== 'undefined' && typeof SessionManager.getActiveSession === 'function')
-          ? SessionManager.getActiveSession()
-          : null;
-        if (session && session.username) {
-          resolvedUsername = session.username;
-        }
-      } catch (e) {
-        console.warn('Session lookup inside getMyBills failed:', e);
-      }
-    }
+    const authUser = AuthMemory.getUsername();
+    const authRole = AuthMemory.getRole();
+    const resolvedUsername = (authRole === 'owner' && tenantUsername) ? tenantUsername : authUser;
 
     if (!resolvedUsername) {
-      try {
-        const stored = JSON.parse(localStorage.getItem('user_session') || '{}');
-        resolvedUsername = stored.username;
-      } catch (_) {}
+      throw new Error('सेसन फेला परेन। कृपया लगइन गर्नुहोस्।');
     }
 
-    if (!resolvedUsername) {
-      try {
-        const currentU = JSON.parse(localStorage.getItem('currentUser') || '{}');
-        resolvedUsername = currentU.username;
-      } catch (_) {}
-    }
-
-    if (!resolvedUsername) {
-      resolvedUsername = localStorage.getItem('username') || 'aanayas';
-    }
-
-    resolvedUsername = (resolvedUsername || '').trim().toLowerCase();
-
-    const fetchUrl = `${API_BASE}/rentee/my-bills/${encodeURIComponent(resolvedUsername)}`;
-    const res = await fetch(fetchUrl);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.error || data.message || 'मासिक बिलहरू लोड हुन सकेन');
-    }
+    const data = await apiFetch(`/rentee/my-bills/${encodeURIComponent(resolvedUsername)}`);
     if (Array.isArray(data)) return data;
     if (data && Array.isArray(data.bills)) return data.bills;
     return [];
   },
 
-  // B. Submit Payment Proof Image
+  // Submit Payment Proof Image
   submitProof: async function (billId, base64Image) {
-    const res = await fetch(`${API_BASE}/rentee/submit-proof`, {
+    return apiFetch('/rentee/submit-proof', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ billId, base64Image })
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || (data && data.success === false)) {
-      throw new Error(data.error || data.message || 'रसिद अपलोड असफल भयो (Upload failed)');
-    }
-    return data;
   },
 
-  // C. Serve / Display Proof Image
+  // Serve / Display Proof Image
   getProofImageUrl: function (proof) {
     if (!proof) return './img/logo.png';
     if (proof.startsWith('data:') || proof.startsWith('http://') || proof.startsWith('https://')) {
@@ -688,15 +713,34 @@ const ApiService = {
 };
 
 // ==========================================
-// १. लगइन प्रणाली (Login Panel Logic)
+// १. लगइन प्रणाली (Login Panel Logic with Hardened Rate-Limit UX)
 // ==========================================
 const LoginSystem = {
+  failedAttempts: 0,
+  lockoutTimer: null,
+  lockoutEndTime: 0,
+
   init: function () {
     const self = this;
 
     setTimeout(function () {
       $('#body_loading').addClass('hide');
     }, 400);
+
+    // Surface session expiration or unauthorized redirect notice clearly
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const reason = params.get('reason');
+      if (reason === 'session_expired') {
+        $('#login_msg').css({ color: '#f59e0b', display: 'block' }).text(
+          'तपाईंको सेसन समाप्त भएको छ। कृपया पुनः लगइन गर्नुहोस्। (Session expired. Please log in again.)'
+        );
+      } else if (reason === 'unauthorized') {
+        $('#login_msg').css({ color: '#ef4444', display: 'block' }).text(
+          'तपाईंलाई यो कार्य गर्ने अनुमति छैन। (Not authorized for this action.)'
+        );
+      }
+    } catch (_) {}
 
     // Auto-fill username from localStorage if available
     const savedUser = localStorage.getItem('username');
@@ -717,13 +761,40 @@ const LoginSystem = {
     });
   },
 
+  startLockout: function (seconds, customMsg) {
+    const self = this;
+    if (this.lockoutTimer) clearInterval(this.lockoutTimer);
+    this.lockoutEndTime = Date.now() + seconds * 1000;
+
+    const updateUI = () => {
+      const remainingSecs = Math.max(0, Math.ceil((self.lockoutEndTime - Date.now()) / 1000));
+      if (remainingSecs <= 0) {
+        clearInterval(self.lockoutTimer);
+        self.lockoutTimer = null;
+        $('#login_btn').prop('disabled', false).find('.btn-text').text('लगइन गर्नुहोस्');
+        $('#login_msg').css('color', '#94a3b8').text('');
+        return;
+      }
+      $('#login_btn').prop('disabled', true).find('.btn-text').text(`प्रतिक्षा गर्नुहोस् (${remainingSecs}s)`);
+      const msg = customMsg || `धेरै पटक गलत प्रयास भयो। कृपया ${remainingSecs} सेकेन्ड पर्खनुहोस्... (Too many failed attempts. Please wait ${remainingSecs}s...)`;
+      $('#login_msg').css({ color: '#ef4444', display: 'block' }).text(msg);
+    };
+
+    updateUI();
+    this.lockoutTimer = setInterval(updateUI, 1000);
+  },
+
   authenticateUser: async function () {
+    if (this.lockoutTimer && Date.now() < this.lockoutEndTime) {
+      return;
+    }
+
     $('#login_msg').text('');
     const username = $('#account_input').val().trim().toLowerCase();
     const passwordPlain = ($('#account_password').val() || '').trim();
 
     if (!username || !passwordPlain) {
-      $('#login_msg').text('कृपया प्रयोगकर्ता नाम र पासवर्ड प्रविष्ट गर्नुहोस्।');
+      $('#login_msg').css('color', '#ef4444').text('कृपया प्रयोगकर्ता नाम र पासवर्ड प्रविष्ट गर्नुहोस्।');
       return;
     }
 
@@ -732,6 +803,13 @@ const LoginSystem = {
     try {
       const response = await ApiService.login(username, passwordPlain);
       if (response && (response.success || response.role || response.token)) {
+        // Reset lockout and failed attempts
+        this.failedAttempts = 0;
+        if (this.lockoutTimer) {
+          clearInterval(this.lockoutTimer);
+          this.lockoutTimer = null;
+        }
+
         const authPayload = {
           username: response.username || username,
           name: response.name || (username === 'admin' ? 'Devendra Kumar Jabegu' : username),
@@ -739,7 +817,18 @@ const LoginSystem = {
           token: response.token
         };
 
-        // Persist username, role, and name in localStorage upon successful authentication
+        // In-memory token storage
+        AuthMemory.setToken(response.token);
+        AuthMemory.setSession(authPayload);
+
+        // One-time transient handoff to rent-portal.html via sessionStorage (immediately purged upon load)
+        try {
+          if (response.token) {
+            sessionStorage.setItem('__jabegu_jwt_handoff__', response.token);
+          }
+        } catch (_) {}
+
+        // Non-sensitive display attributes saved in localStorage
         localStorage.setItem('username', authPayload.username);
         localStorage.setItem('name', authPayload.name);
         localStorage.setItem('role', authPayload.role);
@@ -752,13 +841,24 @@ const LoginSystem = {
         throw new Error(response.message || response.error || 'प्रमाणिकरण असफल भयो (Authentication failed)');
       }
     } catch (err) {
-      if (err.isDisabledAccount || err.status === 403 || (err.message && (err.message.toLowerCase().includes('disabled') || err.message.includes('निष्क्रीय')))) {
+      this.failedAttempts++;
+
+      if (err.status === 429 || err.code === 'TOO_MANY_REQUESTS') {
+        const retrySecs = (err.retryAfterMinutes ? err.retryAfterMinutes * 60 : 60);
+        this.startLockout(retrySecs, err.message);
+      } else if (err.isDisabledAccount || err.status === 403) {
         $('#disabled_modal_text').text('तपाईंको खाता घरधनीद्वारा निष्क्रीय गरिएको छ। कृपया प्रशासनसँग सम्पर्क गर्नुहोस्।');
         $('#disabled_account_modal').removeClass('hide');
+        $('#login_btn').prop('disabled', false).find('.btn-text').text('लगइन गर्नुहोस्');
       } else {
-        $('#login_msg').text(err.message || 'प्रयोगकर्ता नाम वा पासवर्ड मिलेन (Authentication failed)');
+        if (this.failedAttempts >= 3) {
+          // Lock submit button briefly (30s) after 3 failed attempts to avoid rate limiting
+          this.startLockout(30);
+        } else {
+          $('#login_msg').css('color', '#ef4444').text(err.message || 'प्रयोगकर्ता नाम वा पासवर्ड मिलेन (Authentication failed)');
+          $('#login_btn').prop('disabled', false).find('.btn-text').text('लगइन गर्नुहोस्');
+        }
       }
-      $('#login_btn').prop('disabled', false).find('.btn-text').text('लगइन गर्नुहोस्');
     }
   }
 };
@@ -785,7 +885,7 @@ const PortalDashboard = {
       $('#body_loading').addClass('hide');
     }, 350);
 
-    // Retrieve active session securely with universal safe fallbacks
+    // Retrieve active session securely
     let session = null;
     try {
       session = (typeof SessionManager !== 'undefined' && typeof SessionManager.getActiveSession === 'function')
@@ -795,32 +895,27 @@ const PortalDashboard = {
       console.warn('Session retrieval error in init:', e);
     }
 
-    if (!session || !session.username) {
-      try {
-        const storedSess = JSON.parse(localStorage.getItem('user_session') || 'null');
-        if (storedSess && (storedSess.username || storedSess.name)) {
-          session = SessionManager.formatSessionObject(storedSess);
+    // Check one-time token handoff from login navigation
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        const handoff = sessionStorage.getItem('__jabegu_jwt_handoff__');
+        if (handoff) {
+          AuthMemory.setToken(handoff);
+          sessionStorage.removeItem('__jabegu_jwt_handoff__'); // Purge immediately from storage
         }
-      } catch (_) {}
-    }
+      }
+    } catch (_) {}
 
-    if (!session || !session.username) {
-      try {
-        const legacyUser = localStorage.getItem('username');
-        if (legacyUser) {
-          session = SessionManager.formatSessionObject({
-            username: legacyUser,
-            role: localStorage.getItem('role') || (legacyUser === 'admin' ? 'owner' : 'rentee'),
-            name: localStorage.getItem('name') || legacyUser
-          });
-        }
-      } catch (_) {}
-    }
-
-    if (!session || !session.username || !session.role) {
-      window.location.href = 'index.html';
+    // Enforce in-memory token requirement: if refreshed without token or expired, redirect to login
+    const inMemToken = AuthMemory.getToken();
+    if (!inMemToken || !session || !session.username || !session.role) {
+      AuthMemory.clear();
+      SessionManager.destroySession();
+      window.location.href = 'index.html?reason=session_expired';
       return;
     }
+
+    AuthMemory.setSession(session);
 
     this.currentSession = session;
     this.currentRole = session.role;
@@ -1351,29 +1446,100 @@ const PortalDashboard = {
     let statusBadgeHtml = '';
     let statusMetaDesc = 'Last Payment Status';
 
+    let qrBadgeHtml = '';
+    let qrNotificationHtml = '';
+
     if (!hasTransactions) {
       statusBadgeHtml = '<span class="badge" style="background: rgba(255,255,255,0.06); color: var(--muted); border: 1px solid var(--line); font-size: 11px;"><i data-lucide="minus" style="width:12px;height:12px"></i> कारोबार छैन (No Bills)</span>';
       statusMetaDesc = 'कुनै कारोबार दर्ता गरिएको छैन';
+      qrBadgeHtml = '<span class="badge" style="background: rgba(255,255,255,0.06); color: var(--muted); border: 1px solid var(--line); font-size: 11px;">कारोबार छैन</span>';
+      qrNotificationHtml = `
+        <div style="background: rgba(148, 163, 184, 0.08); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+          <i data-lucide="info" style="color: var(--accent-strong); width: 20px; height: 20px; flex-shrink: 0;"></i>
+          <div style="flex: 1; font-size: 12px; color: var(--text); line-height: 1.5;">
+            हाल कुनै बिल जारी भएको छैन। नयाँ बिल जारी हुनासाथ यहाँ भुक्तानी रसिद पठाउने विकल्प सक्रिय हुनेछ।
+          </div>
+        </div>
+      `;
     } else {
       const latestStatus = (latestBill.status || '').toLowerCase().trim();
       if (latestStatus === 'paid via qr' || latestStatus === 'paid' || latestStatus === 'approved' || latestStatus === 'भुक्तानी स्वीकृत') {
         statusBadgeHtml = '<span class="badge status-paid"><i data-lucide="check-circle-2" style="width:12px;height:12px"></i> भुक्तानी स्वीकृत</span>';
         statusMetaDesc = 'अन्तिम भुक्तानी स्वीकृत (Paid via QR)';
+        qrBadgeHtml = '<span class="badge status-paid"><i data-lucide="check-circle-2" style="width:12px;height:12px"></i> स्वीकृत (Accepted)</span>';
+        qrNotificationHtml = `
+          <div style="background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.35); border-radius: 12px; padding: 14px 16px; display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px;">
+            <i data-lucide="check-circle-2" style="color: #4ade80; width: 22px; height: 22px; flex-shrink: 0; margin-top: 2px;"></i>
+            <div style="flex: 1;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-wrap: wrap; gap: 6px;">
+                <strong style="color: #86efac; font-size: 14px;">✓ भुक्तानी स्वीकृत (Payment Accepted)</strong>
+                <span style="background: rgba(34,197,94,0.2); color: #86efac; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;">स्वीकृत (Accepted)</span>
+              </div>
+              <p style="margin: 0; font-size: 12px; color: var(--text); line-height: 1.5;">
+                तपाईंले पठाउनुभएको भुक्तानी प्रमाण घरधनीद्वारा प्रमाणीकरण भई स्वीकृत भइसकेको छ। यस महिनाको बक्यौता रकम चुक्ता गरिएको छ।
+              </p>
+            </div>
+          </div>
+        `;
       } else if (latestStatus === 'pending_verification' || latestStatus === 'pending' || latestStatus === 'प्रमाणीकरण पेन्डिङ') {
         statusBadgeHtml = '<span class="badge status-pending"><i data-lucide="clock" style="width:12px;height:12px"></i> प्रमाणीकरण पेन्डिङ</span>';
         statusMetaDesc = 'घरधनीको रुजु बाँकी (Under Review)';
+        qrBadgeHtml = '<span class="badge status-pending"><i data-lucide="clock" style="width:12px;height:12px"></i> पेन्डिङ (Pending)</span>';
+        qrNotificationHtml = `
+          <div style="background: rgba(234, 179, 8, 0.12); border: 1px solid rgba(234, 179, 8, 0.35); border-radius: 12px; padding: 14px 16px; display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px;">
+            <i data-lucide="clock" style="color: #facc15; width: 22px; height: 22px; flex-shrink: 0; margin-top: 2px;"></i>
+            <div style="flex: 1;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-wrap: wrap; gap: 6px;">
+                <strong style="color: #fef08a; font-size: 14px;">⏳ भुक्तानी प्रमाण पेन्डिङ (Pending Verification)</strong>
+                <span style="background: rgba(234,179,8,0.25); color: #facc15; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;">जाँच हुँदैछ (Under Review)</span>
+              </div>
+              <p style="margin: 0; font-size: 12px; color: var(--text); line-height: 1.5;">
+                तपाईंले पठाउनुभएको भुक्तानी भौचर वा स्क्रिनसट घरधनीको रुजु तथा प्रमाणीकरण प्रक्रियामा छ। घरधनीले स्वीकृति प्रदान गरेपछि स्थिति स्वतः 'स्वीकृत' हुनेछ र बाँकी रकम हिसाब मिलान हुनेछ।
+              </p>
+            </div>
+          </div>
+        `;
       } else if (latestStatus === 'rejected') {
         statusBadgeHtml = '<span class="badge status-rejected"><i data-lucide="x-circle" style="width:12px;height:12px"></i> अस्वीकृत - पुनः पठाउनुहोस्</span>';
         statusMetaDesc = 'भुक्तानी अस्वीकृत भयो';
+        qrBadgeHtml = '<span class="badge status-rejected"><i data-lucide="x-circle" style="width:12px;height:12px"></i> अस्वीकृत (Rejected)</span>';
+        qrNotificationHtml = `
+          <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 12px; padding: 14px 16px; display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px;">
+            <i data-lucide="x-circle" style="color: #f87171; width: 22px; height: 22px; flex-shrink: 0; margin-top: 2px;"></i>
+            <div style="flex: 1;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-wrap: wrap; gap: 6px;">
+                <strong style="color: #fca5a5; font-size: 14px;">✕ भुक्तानी अस्वीकृत (Payment Rejected)</strong>
+                <span style="background: rgba(239,68,68,0.25); color: #fca5a5; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;">अस्वीकृत (Rejected)</span>
+              </div>
+              <p style="margin: 0 0 8px 0; font-size: 12px; color: var(--text); line-height: 1.5;">
+                तपाईंले पठाउनुभएको भुक्तानी भौचर वा स्क्रिनसट स्पष्ट नभएको वा बैंक विवरण नमिलेको हुनाले घरधनीबाट अस्वीकृत गरिएको छ। कृपया तलको बटन थिचेर पुनः सही र स्पष्ट प्रमाण पठाउनुहोस्।
+              </p>
+              <button type="button" class="modern-secondary-btn" style="padding: 5px 12px; font-size: 11px; width: auto;" onclick="PortalDashboard.openPaymentModal()">
+                <i data-lucide="upload-cloud"></i> पुनः स्पष्ट प्रमाण अपलोड गर्नुहोस्
+              </button>
+            </div>
+          </div>
+        `;
       } else {
         statusBadgeHtml = '<span class="badge status-unpaid"><i data-lucide="alert-circle" style="width:12px;height:12px"></i> UNPAID</span>';
         statusMetaDesc = 'मासिक बिल भुक्तानी गर्न बाँकी';
+        qrBadgeHtml = '<span class="badge status-unpaid"><i data-lucide="alert-circle" style="width:12px;height:12px"></i> बाँकी (Unpaid)</span>';
+        qrNotificationHtml = `
+          <div style="background: rgba(148, 163, 184, 0.08); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+            <i data-lucide="alert-circle" style="color: var(--accent-strong); width: 20px; height: 20px; flex-shrink: 0;"></i>
+            <div style="flex: 1; font-size: 12px; color: var(--text); line-height: 1.5;">
+              <strong>मासिक भुक्तानी बाँकी (Payment Due):</strong> तलको QR स्क्यान गरि रकम भुक्तानी गर्नुहोस् र सोको भौचर/स्क्रिनसट 'भुक्तानी प्रमाण अपलोड गर्नुहोस्' मार्फत पठाउनुहोस्।
+            </div>
+          </div>
+        `;
       }
     }
 
-    $('#tenant_status_badge, #tenant_qr_status_badge').replaceWith(
-      $(statusBadgeHtml).attr('id', 'tenant_status_badge')
+    $('#tenant_status_badge').html(statusBadgeHtml);
+    $('#tenant_qr_status_badge').replaceWith(
+      $(qrBadgeHtml).attr('id', 'tenant_qr_status_badge')
     );
+    $('#tenant_qr_status_notification, #tenant_subpage_qr_status_notification').html(qrNotificationHtml);
     $('#tenant_status_meta_desc').text(statusMetaDesc);
 
     // ==========================================
@@ -1750,13 +1916,13 @@ const PortalDashboard = {
 
       const floorsText = Array.isArray(t.floor) ? t.floor.join(', ') : (t.floor || '1st Floor');
       const isDisabled = t.status === 'निष्क्रीय' || t.status === 'disabled';
-      const statusBadge = isDisabled
-        ? '<span class="badge status-rejected"><i data-lucide="x-circle" style="width:12px;height:12px"></i> निष्क्रीय</span>'
-        : '<span class="badge status-paid"><i data-lucide="check-circle-2" style="width:12px;height:12px"></i> सक्रिय</span>';
+      const statusText = isDisabled
+        ? '<span style="color: #f87171; font-weight: 600; font-size: 13px;">निष्क्रीय (Inactive)</span>'
+        : '<span style="color: #4ade80; font-weight: 600; font-size: 13px;">सक्रिय (Active)</span>';
 
-      const wifiStatusBadge = (usesWifi === true || usesWifi === 'true')
-        ? `<span class="badge" style="background: rgba(34, 197, 94, 0.15); color: #86efac; border: 1px solid rgba(34,197,94,0.3);"><i data-lucide="wifi" style="width:12px;height:12px"></i> ${devCount} यन्त्रहरू</span>`
-        : '<span style="color: var(--muted-soft); font-size: 12px;">N/A</span>';
+      const wifiStatusText = (usesWifi === true || usesWifi === 'true')
+        ? `<span style="color: var(--text); font-weight: 500; font-size: 13px;">उपलब्ध (${devCount} यन्त्रहरू)</span>`
+        : '<span style="color: var(--muted-soft); font-size: 13px;">उपलब्ध छैन (N/A)</span>';
 
       const row = `
         <tr>
@@ -1767,9 +1933,9 @@ const PortalDashboard = {
             </div>
           </td>
           <td>${floorsText}</td>
-          <td>${wifiStatusBadge}</td>
+          <td>${wifiStatusText}</td>
           <td><strong>रू ${(Number(t.floorRent) || 15000).toLocaleString()}</strong></td>
-          <td>${statusBadge}</td>
+          <td>${statusText}</td>
           <td>
             <div class="table-action-button-row">
               <button type="button" class="table-mini-action-btn accept-trigger" onclick="PortalDashboard.openEditTenantModal('${t.username}')" title="डेरावाला विवरण सम्पादन गर्नुहोस्">
@@ -1823,7 +1989,18 @@ const PortalDashboard = {
     }
 
     bills.forEach(bill => {
-      const badge = this.getStatusBadge(bill.status);
+      const s = (bill.status || 'unpaid').toLowerCase().trim();
+      let ledgerStatusText = '';
+      if (s === 'paid via qr' || s === 'paid' || s === 'approved' || s === 'भुक्तानी स्वीकृत') {
+        ledgerStatusText = '<span style="color: #4ade80; font-weight: 600; font-size: 13px;">भुक्तानी स्वीकृत (Paid)</span>';
+      } else if (s === 'pending_verification' || s === 'pending' || s === 'प्रमाणीकरण पेन्डिङ') {
+        ledgerStatusText = '<span style="color: #facc15; font-weight: 600; font-size: 13px;">प्रमाणीकरण पेन्डिङ (Pending)</span>';
+      } else if (s === 'rejected' || s === 'अस्वीकृत - पुनः पठाउनुहोस्') {
+        ledgerStatusText = '<span style="color: #f87171; font-weight: 600; font-size: 13px;">अस्वीकृत (Rejected)</span>';
+      } else {
+        ledgerStatusText = '<span style="color: var(--muted-soft); font-weight: 500; font-size: 13px;">भुक्तानी बाँकी (Unpaid)</span>';
+      }
+
       const hasProof = !!bill.proofImage;
       const formattedDate = bill.createdAt ? new Date(bill.createdAt).toLocaleDateString('ne-NP') : '२०८३';
 
@@ -1860,7 +2037,7 @@ const PortalDashboard = {
           <td>रू ${(Number(bill.electricityAmount) || 0).toLocaleString()}</td>
           <td>रू ${(Number(bill.floorRent) || 0).toLocaleString()}</td>
           <td><strong style="color:var(--accent); font-size:14px;">रू ${(Number(bill.totalAmount) || 0).toLocaleString()}</strong></td>
-          <td>${badge}</td>
+          <td>${ledgerStatusText}</td>
           <td><div class="table-action-button-row">${actionButtons}</div></td>
         </tr>
       `;
@@ -2123,7 +2300,7 @@ const PortalDashboard = {
     const file = fileInput && fileInput.files ? fileInput.files[0] : null;
 
     if (!file) {
-      $('#submit_proof_msg').text('कृपया भुक्तानी रसिद वा स्क्रिनसट फाइल चयन गर्नुहोस्।');
+      $('#submit_proof_msg').css('color', '#ef4444').text('कृपया भुक्तानी रसिद वा स्क्रिनसट फाइल चयन गर्नुहोस्।');
       return;
     }
 
@@ -2137,7 +2314,13 @@ const PortalDashboard = {
       $('#submit_proof_modal').addClass('hide');
       await this.loadRenteeData();
     } catch (err) {
-      $('#submit_proof_msg').text(err.message || 'रसिद अपलोड असफल भयो।');
+      let displayMsg = err.message || 'रसिद अपलोड असफल भयो।';
+      if (err.status === 400 && err.details) {
+        displayMsg = `अमान्य फाइल: ${err.message}`;
+      } else if (err.status === 413) {
+        displayMsg = 'फाइल धेरै ठूलो भयो। कृपया सानो साइजको तस्विर अपलोड गर्नुहोस्। (File size too large)';
+      }
+      $('#submit_proof_msg').css({ color: '#ef4444', display: 'block' }).text(displayMsg);
     } finally {
       $('#modal_submit_proof_btn').prop('disabled', false).text('प्रमाण बुझाउनुहोस्');
     }
@@ -2145,10 +2328,43 @@ const PortalDashboard = {
 
   fileToBase64: function (file) {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = error => reject(error);
-      reader.readAsDataURL(file);
+      // For images, perform client-side canvas compression for faster transit
+      if (file.type && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            const maxDim = 1600;
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressed = canvas.toDataURL('image/jpeg', 0.82);
+            resolve(compressed);
+          };
+          img.onerror = () => resolve(e.target.result);
+          img.src = e.target.result;
+        };
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(file);
+      } else {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(file);
+      }
     });
   },
 
@@ -2685,6 +2901,51 @@ const PortalDashboard = {
     if (typeof lucide !== 'undefined') lucide.createIcons();
   },
 
+  pendingAdminNewPassword: '',
+  sourcePasswordForm: null,
+
+  openAdminPasswordConfirmModal: function (newPassword, sourceForm) {
+    this.pendingAdminNewPassword = newPassword;
+    this.sourcePasswordForm = sourceForm;
+    $('#admin_pwd_step_confirm').removeClass('hide');
+    $('#admin_pwd_step_changed').addClass('hide');
+    $('#btn_confirm_change_pwd_execute').prop('disabled', false).html('<i data-lucide="check"></i> पुष्टि गरि परिवर्तन गर्नुहोस् (Confirm & Change)');
+    $('#admin_password_confirm_dialog_modal').removeClass('hide');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  },
+
+  closeAdminPasswordConfirmModal: function () {
+    $('#admin_password_confirm_dialog_modal').addClass('hide');
+    this.pendingAdminNewPassword = '';
+    this.sourcePasswordForm = null;
+  },
+
+  executeAdminPasswordChange: async function () {
+    if (!this.pendingAdminNewPassword) return;
+
+    const $btn = $('#btn_confirm_change_pwd_execute');
+    $btn.prop('disabled', true).text('परिवर्तन गरिँदैछ...');
+
+    try {
+      await ApiService.changePassword('', this.pendingAdminNewPassword);
+      if ($('#modal_change_password_form').length) $('#modal_change_password_form')[0].reset();
+      if ($('#admin_change_password_form').length) $('#admin_change_password_form')[0].reset();
+      $('#modal_change_password_msg').text('');
+      $('#admin_change_password_msg').css('color', '#8cf0a2').text('पासवर्ड सफलतापूर्वक परिवर्तन भयो!');
+      
+      $('#change_password_modal').addClass('hide');
+
+      $('#admin_pwd_step_confirm').addClass('hide');
+      $('#admin_pwd_step_changed').removeClass('hide');
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    } catch (err) {
+      alert(err.message || 'पासवर्ड परिवर्तन असफल भयो।');
+      this.closeAdminPasswordConfirmModal();
+    } finally {
+      $btn.prop('disabled', false).html('<i data-lucide="check"></i> पुष्टि गरि परिवर्तन गर्नुहोस् (Confirm & Change)');
+    }
+  },
+
   // Issue 11: Admin Password Change (Requires only newPassword and confirmPassword)
   submitModalChangePasswordAction: async function () {
     const newPassword = $('#modal_admin_new_password').val().trim();
@@ -2708,18 +2969,7 @@ const PortalDashboard = {
       return;
     }
 
-    $('#btn_modal_change_password_submit').prop('disabled', true).text('परिवर्तन हुँदैछ...');
-
-    try {
-      await ApiService.changePassword('', newPassword);
-      alert('एडमिन पासवर्ड सफलतापूर्वक परिवर्तन गरियो!');
-      $('#change_password_modal').addClass('hide');
-      $('#modal_change_password_form')[0].reset();
-    } catch (err) {
-      $msg.text(err.message || 'पासवर्ड परिवर्तन असफल भयो।');
-    } finally {
-      $('#btn_modal_change_password_submit').prop('disabled', false).text('पासवर्ड परिवर्तन सुरक्षित गर्नुहोस्');
-    }
+    this.openAdminPasswordConfirmModal(newPassword, 'modal');
   },
 
   submitChangePasswordAction: async function () {
@@ -2744,18 +2994,7 @@ const PortalDashboard = {
       return;
     }
 
-    $('#btn_change_password_submit').prop('disabled', true).text('परिवर्तन हुँदैछ...');
-
-    try {
-      await ApiService.changePassword('', newPassword);
-      alert('एडमिन पासवर्ड सफलतापूर्वक परिवर्तन गरियो!');
-      $('#admin_change_password_form')[0].reset();
-      $msg.css('color', '#8cf0a2').text('पासवर्ड सफलतापूर्वक परिवर्तन भयो!');
-    } catch (err) {
-      $msg.css('color', '#fca5a5').text(err.message || 'पासवर्ड परिवर्तन असफल भयो।');
-    } finally {
-      $('#btn_change_password_submit').prop('disabled', false).text('पासवर्ड सुरक्षित गर्नुहोस्');
-    }
+    this.openAdminPasswordConfirmModal(newPassword, 'page');
   },
 
   // Issue 11: Admin Reset Tenant Password Modal & Action
@@ -3044,8 +3283,13 @@ const PortalDashboard = {
   // Notices Management (Admin & Rentee)
   loadNoticesList: async function () {
     let notices = [];
+    const role = AuthMemory.getRole() || this.currentRole;
     try {
-      notices = await ApiService.getNotices();
+      if (role === 'owner') {
+        notices = await ApiService.getAdminNotices();
+      } else {
+        notices = await ApiService.getRenteeNotices();
+      }
     } catch (_) {}
 
     if (!Array.isArray(notices) || notices.length === 0) {
@@ -3166,8 +3410,13 @@ const PortalDashboard = {
   // Maintenance Management (Admin & Rentee)
   loadMaintenanceList: async function () {
     let list = [];
+    const role = AuthMemory.getRole() || this.currentRole;
     try {
-      list = await ApiService.getMaintenanceRequests();
+      if (role === 'owner') {
+        list = await ApiService.getMaintenanceRequests();
+      } else {
+        list = await ApiService.getMyMaintenance();
+      }
     } catch (_) {}
 
     // 1. Render Admin Maintenance Table
@@ -3177,11 +3426,11 @@ const PortalDashboard = {
         $tbody.html('<tr><td colspan="7" class="empty-state-notice"><i data-lucide="check-circle" style="width:16px;height:16px;display:inline-block;vertical-align:middle;color:#8cf0a2;"></i> हाल कुनै मर्मत अनुरोध छैन।</td></tr>');
       } else {
         const rowsHtml = list.map(item => {
-          const statusBadge = (item.status === 'समाधान भयो' || item.status === 'resolved')
-            ? '<span class="badge status-paid">समाधान भयो</span>'
+          const statusText = (item.status === 'समाधान भयो' || item.status === 'resolved')
+            ? '<span style="color: #4ade80; font-weight: 600; font-size: 13px;">समाधान भयो (Resolved)</span>'
             : (item.status === 'काम हुँदैछ' || item.status === 'in_progress')
-            ? '<span class="badge status-pending">काम हुँदैछ</span>'
-            : '<span class="badge status-unpaid">नयाँ अनुरोध</span>';
+            ? '<span style="color: #facc15; font-weight: 600; font-size: 13px;">काम हुँदैछ (In Progress)</span>'
+            : '<span style="color: #f87171; font-weight: 600; font-size: 13px;">नयाँ अनुरोध (New)</span>';
 
           return `
             <tr>
@@ -3190,7 +3439,7 @@ const PortalDashboard = {
               <td>${item.issueType}</td>
               <td><span style="font-size:12px; color:var(--accent-strong); font-weight:600;">${item.urgency || 'सामान्य'}</span></td>
               <td style="max-width: 240px; white-space: normal;">${item.description}</td>
-              <td>${statusBadge}</td>
+              <td>${statusText}</td>
               <td>
                 <select class="modern-dashboard-input" style="padding: 4px 8px; font-size: 12px; width: auto;" onchange="PortalDashboard.updateMaintenanceStatusAction('${item.id}', this.value)">
                   <option value="नयाँ अनुरोध" ${item.status === 'नयाँ अनुरोध' ? 'selected' : ''}>नयाँ अनुरोध</option>

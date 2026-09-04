@@ -430,6 +430,9 @@
                   </span>
                 </div>
 
+                <!-- Dynamic Pay QR Verification & Payment Status Notification Banner -->
+                <div id="tenant_qr_status_notification" class="qr-status-notification-frame"></div>
+
                 <!-- Payment Provider Tabs -->
                 <div class="payment-tabs-container">
                   <button type="button" class="payment-tab-btn active" data-provider="global_ime" onclick="PortalDashboard.selectPaymentProvider('global_ime')">
@@ -1343,6 +1346,9 @@
             </div>
 
             <div class="content-glass-card large-span">
+              <!-- Dynamic Pay QR Verification & Payment Status Notification Banner -->
+              <div id="tenant_subpage_qr_status_notification" class="qr-status-notification-frame"></div>
+
               <div class="payment-tabs-container">
                 <button type="button" class="payment-tab-btn active" data-provider="global_ime" onclick="PortalDashboard.selectPaymentProvider('global_ime')">
                   <i data-lucide="building-2"></i> Global IME Bank
@@ -2278,6 +2284,58 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- मोडल ७.१: घरधनी पासवर्ड परिवर्तन पुष्टि मोडल (Admin Password Change Confirmation & Status Modal) -->
+    <div id="admin_password_confirm_dialog_modal" class="app-modal-overlay hide" role="dialog" aria-modal="true">
+      <div class="app-modal-card" style="max-width: 480px;">
+        <div class="app-modal-header">
+          <div class="app-modal-title">
+            <i data-lucide="shield-check"></i> पासवर्ड परिवर्तन (Change Admin Password)
+          </div>
+          <button type="button" class="app-modal-close-btn" onclick="PortalDashboard.closeAdminPasswordConfirmModal()" aria-label="Close">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <div class="app-modal-body" style="padding: 20px;">
+          <!-- Step 1: Confirmation -->
+          <div id="admin_pwd_step_confirm">
+            <div style="background: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; display: flex; align-items: flex-start; gap: 12px;">
+              <i data-lucide="alert-triangle" style="color: #facc15; width: 22px; height: 22px; flex-shrink: 0; margin-top: 2px;"></i>
+              <div style="font-size: 13px; color: var(--text); line-height: 1.5;">
+                <strong style="color: #fef08a; display: block; margin-bottom: 4px;">पासवर्ड परिवर्तन पुष्टि गर्नुहोस् (Confirm Change)</strong>
+                के तपाईं घरधनी (Admin) खाताको पासवर्ड परिवर्तन गर्न निश्चित हुनुहुन्छ? यो कार्यले एडमिन प्रोफाइलको सुरक्षा पासवर्ड अद्यावधिक गर्नेछ।
+              </div>
+            </div>
+            <div class="app-modal-footer" style="padding: 0; border: none; margin-top: 16px; display: flex; justify-content: flex-end; gap: 10px;">
+              <button type="button" class="modern-secondary-btn" onclick="PortalDashboard.closeAdminPasswordConfirmModal()">
+                रद्द गर्नुहोस् (Cancel)
+              </button>
+              <button type="button" class="modern-primary-action-btn" id="btn_confirm_change_pwd_execute" onclick="PortalDashboard.executeAdminPasswordChange()" style="width: auto; padding: 10px 22px;">
+                <i data-lucide="check"></i> पुष्टि गरि परिवर्तन गर्नुहोस् (Confirm & Change)
+              </button>
+            </div>
+          </div>
+
+          <!-- Step 2: Changed / Success -->
+          <div id="admin_pwd_step_changed" class="hide">
+            <div style="background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.35); border-radius: 12px; padding: 20px 16px; text-align: center; margin-bottom: 16px;">
+              <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(34, 197, 94, 0.2); color: #4ade80; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
+                <i data-lucide="check-circle" style="width: 28px; height: 28px;"></i>
+              </div>
+              <h4 style="color: #86efac; margin: 0 0 6px 0; font-size: 16px;">पासवर्ड परिवर्तन भयो (Password Changed)!</h4>
+              <p style="font-size: 13px; color: var(--text); margin: 0; line-height: 1.5;">
+                घरधनी (Admin) खाताको नयाँ पासवर्ड सफलतापूर्वक परिवर्तन तथा सुरक्षित गरियो।
+              </p>
+            </div>
+            <div class="app-modal-footer" style="padding: 0; border: none; display: flex; justify-content: center;">
+              <button type="button" class="modern-primary-action-btn" onclick="PortalDashboard.closeAdminPasswordConfirmModal()" style="width: auto; padding: 10px 32px;">
+                ठिक छ (Done / Close)
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 

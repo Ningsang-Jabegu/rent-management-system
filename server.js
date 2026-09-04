@@ -648,6 +648,13 @@ app.post(['/api/jabegu-rent-portal/rentee/create-maintenance', '/api/jabegu-rent
   return res.json({ success: true, request: newReq });
 });
 
+app.get(['/api/jabegu-rent-portal/rentee/my-maintenance/:tenantUsername', '/rentee/my-maintenance/:tenantUsername'], (req, res) => {
+  const store = loadStore();
+  const u = String(req.params.tenantUsername || '').trim().toLowerCase();
+  const items = (store.maintenanceRequests || []).filter(m => String(m.tenantUsername || '').trim().toLowerCase() === u);
+  return res.json({ success: true, requests: items });
+});
+
 app.get('/api/jabegu-rent-portal/admin/maintenance-requests', (req, res) => {
   const store = loadStore();
   return res.json({ success: true, requests: store.maintenanceRequests || [] });
@@ -665,6 +672,11 @@ app.post('/api/jabegu-rent-portal/admin/update-maintenance-status', (req, res) =
 });
 
 // 9. Notices System
+app.get(['/api/jabegu-rent-portal/rentee/notices', '/rentee/notices'], (req, res) => {
+  const store = loadStore();
+  return res.json({ success: true, notices: store.notices || [] });
+});
+
 app.get('/api/jabegu-rent-portal/admin/notices', (req, res) => {
   const store = loadStore();
   return res.json({ success: true, notices: store.notices || [] });
